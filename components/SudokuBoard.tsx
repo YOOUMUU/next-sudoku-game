@@ -18,6 +18,7 @@ const SudokuBoard = () => {
 
   const [history, setHistory] = useState<Board[]>([]);
   const [initialEmptyCells, setInitialEmptyCells] = useState<boolean[][]>([]);
+  const [highlightedCells, setHighlightedCells] = useState<number[]>([]);
 
   useEffect(() => {
     const newBoard = Array.from({ length: 9 }, () => Array(9).fill(0));
@@ -47,10 +48,9 @@ const SudokuBoard = () => {
     createSudoku(newBoard, difficulty);
 
     setSudokuBoard(newBoard);
-
-    const emptyCells = newBoard.map((row) => row.map((cell) => cell === null));
-    setInitialEmptyCells(emptyCells);
     setSelectedCell(-1);
+
+    setHighlightedCells([]);
   };
 
   const sudokuArray = sudokuBoard.flat();
@@ -61,7 +61,15 @@ const SudokuBoard = () => {
   };
 
   const handleCellChange = (index: number) => {
-    setSelectedCell(index);
+    if (selectedCell === index) {
+      setSelectedCell(-1);
+    } else {
+      setSelectedCell(index);
+
+      if (!highlightedCells.includes(index)) {
+        setHighlightedCells([...highlightedCells, index]);
+      }
+    }
   };
 
   const handleNumberSelect = (num: number) => {
@@ -209,6 +217,7 @@ const SudokuBoard = () => {
           const highlight = value === selectedNumber && selectedNumber !== null;
           const initialEmpty =
             initialEmptyCells[row] && initialEmptyCells[row][col];
+          const isHighlighted = highlightedCells.includes(index);
 
           return (
             <SudokuCell
@@ -222,7 +231,7 @@ const SudokuBoard = () => {
               selectedRow={Math.floor(selectedCell / 9)}
               selectedCol={selectedCell % 9}
               highlightError={highlightError}
-              highlight={highlight}
+              highlight={isHighlighted}
               initialEmpty={initialEmpty}
             />
           );

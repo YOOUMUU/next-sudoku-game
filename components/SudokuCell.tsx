@@ -42,7 +42,7 @@ const SudokuCell = ({
   } else if (isInSameBox) {
     backgroundColor = 'bg-yellow-50/60';
   } else if (!initialEmpty) {
-    backgroundColor = 'bg-gray-100';
+    backgroundColor = 'bg-gray-200';
   }
 
   const handleClick = () => {

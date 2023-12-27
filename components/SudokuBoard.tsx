@@ -48,6 +48,9 @@ const SudokuBoard = () => {
     createSudoku(newBoard, difficulty);
 
     setSudokuBoard(newBoard);
+
+    const emptyCells = newBoard.map((row) => row.map((cell) => cell === null));
+    setInitialEmptyCells(emptyCells);
     setSelectedCell(-1);
 
     setHighlightedCells([]);

@@ -35,8 +35,15 @@ const SudokuCell = ({
 
   if (isSelected) {
     backgroundColor = 'bg-yellow-400/60';
+  } else if (!initialEmpty && isInSameBox) {
+    backgroundColor = 'bg-[#FFE280]/40';
   } else if (highlight) {
-    backgroundColor = 'bg-yellow-200/60';
+    backgroundColor = 'bg-yellow-400/50';
+  } else if (
+    (!initialEmpty && row === selectedRow) ||
+    (!initialEmpty && col === selectedCol)
+  ) {
+    backgroundColor = 'bg-[#FFE280]/40';
   } else if (row === selectedRow || col === selectedCol) {
     backgroundColor = 'bg-yellow-100/60';
   } else if (isInSameBox) {

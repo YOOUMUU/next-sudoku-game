@@ -64,14 +64,21 @@ const SudokuBoard = () => {
   };
 
   const handleCellChange = (index: number) => {
+    const newValue = sudokuBoard[Math.floor(index / 9)][index % 9];
     if (selectedCell === index) {
       setSelectedCell(-1);
+      setHighlightedCells([]);
     } else {
       setSelectedCell(index);
-
-      if (!highlightedCells.includes(index)) {
-        setHighlightedCells([...highlightedCells, index]);
-      }
+      const newHighlightedCells: number[] = [];
+      sudokuBoard.forEach((row, rowIndex) => {
+        row.forEach((cellValue, colIndex) => {
+          if (cellValue === newValue) {
+            newHighlightedCells.push(rowIndex * 9 + colIndex);
+          }
+        });
+      });
+      setHighlightedCells(newHighlightedCells);
     }
   };
 

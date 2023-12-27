@@ -70,15 +70,19 @@ const SudokuBoard = () => {
       setHighlightedCells([]);
     } else {
       setSelectedCell(index);
-      const newHighlightedCells: number[] = [];
-      sudokuBoard.forEach((row, rowIndex) => {
-        row.forEach((cellValue, colIndex) => {
-          if (cellValue === newValue) {
-            newHighlightedCells.push(rowIndex * 9 + colIndex);
-          }
+      if (newValue) {
+        const newHighlightedCells: number[] = [];
+        sudokuBoard.forEach((row, rowIndex) => {
+          row.forEach((cellValue, colIndex) => {
+            if (cellValue === newValue) {
+              newHighlightedCells.push(rowIndex * 9 + colIndex);
+            }
+          });
         });
-      });
-      setHighlightedCells(newHighlightedCells);
+        setHighlightedCells(newHighlightedCells);
+      } else {
+        setHighlightedCells([]);
+      }
     }
   };
 

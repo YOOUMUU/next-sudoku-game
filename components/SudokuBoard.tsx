@@ -45,7 +45,11 @@ const SudokuBoard = () => {
   const resetGame = () => {
     const newBoard = Array.from({ length: 9 }, () => Array(9).fill(0));
     createSudoku(newBoard, difficulty);
+
     setSudokuBoard(newBoard);
+
+    const emptyCells = newBoard.map((row) => row.map((cell) => cell === null));
+    setInitialEmptyCells(emptyCells);
     setSelectedCell(-1);
   };
 

@@ -60,7 +60,7 @@ const SudokuBoard = () => {
 
   const handleDifficultyChange = (newDifficulty: GameDifficulty) => {
     setDifficulty(newDifficulty);
-    resetGame(newDifficulty);
+    if (newDifficulty !== difficulty) resetGame(newDifficulty);
   };
 
   const handleCellChange = (index: number) => {
@@ -198,19 +198,31 @@ const SudokuBoard = () => {
           新游戏
         </button>
         <button
-          className="mt-4 p-2 bg-gray-200 rounded hover:bg-gray-900 hover:text-white"
+          className={
+            difficulty === 'easy'
+              ? 'mt-4 p-2 rounded bg-gray-900 text-white cursor-default'
+              : 'mt-4 p-2 bg-gray-200 rounded hover:bg-gray-900 hover:text-white'
+          }
           onClick={() => handleDifficultyChange('easy')}
         >
           简单
         </button>
         <button
-          className="mt-4 p-2 bg-gray-200 rounded hover:bg-gray-900 hover:text-white"
+          className={
+            difficulty === 'normal'
+              ? 'mt-4 p-2 rounded bg-gray-900 text-white cursor-default'
+              : 'mt-4 p-2 bg-gray-200 rounded hover:bg-gray-900 hover:text-white'
+          }
           onClick={() => handleDifficultyChange('normal')}
         >
           普通
         </button>
         <button
-          className="mt-4 p-2 bg-gray-200 rounded hover:bg-gray-900 hover:text-white"
+          className={
+            difficulty === 'hard'
+              ? 'mt-4 p-2 rounded bg-gray-900 text-white cursor-default'
+              : 'mt-4 p-2 bg-gray-200 rounded hover:bg-gray-900 hover:text-white'
+          }
           onClick={() => handleDifficultyChange('hard')}
         >
           困难
@@ -228,7 +240,6 @@ const SudokuBoard = () => {
           } ${col % 3 === 2 ? 'border-r-gray-600' : ''}`;
 
           const highlightError = checkForErrors(index);
-          const highlight = value === selectedNumber && selectedNumber !== null;
           const initialEmpty =
             initialEmptyCells[row] && initialEmptyCells[row][col];
           const isHighlighted = highlightedCells.includes(index);

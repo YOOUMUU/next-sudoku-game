@@ -1,4 +1,3 @@
-// actions/puzzle.action.ts
 import Puzzle from '../models/puzzle.model';
 import { connectToDB } from '../mongoose';
 

@@ -43,9 +43,9 @@ const SudokuBoard = () => {
     }
   }, [selectedCell, sudokuBoard]);
 
-  const resetGame = () => {
+  const resetGame = (newDifficulty: string = difficulty) => {
     const newBoard = Array.from({ length: 9 }, () => Array(9).fill(0));
-    createSudoku(newBoard, difficulty);
+    createSudoku(newBoard, newDifficulty);
 
     setSudokuBoard(newBoard);
 
@@ -60,7 +60,7 @@ const SudokuBoard = () => {
 
   const handleDifficultyChange = (newDifficulty: GameDifficulty) => {
     setDifficulty(newDifficulty);
-    resetGame();
+    resetGame(newDifficulty);
   };
 
   const handleCellChange = (index: number) => {
@@ -193,9 +193,9 @@ const SudokuBoard = () => {
         </button>
         <button
           className="mt-4 p-2 bg-gray-200 hover:bg-gray-900 hover:text-white rounded"
-          onClick={resetGame}
+          onClick={() => resetGame()}
         >
-          重置
+          新游戏
         </button>
         <button
           className="mt-4 p-2 bg-gray-200 rounded hover:bg-gray-900 hover:text-white"

@@ -9,22 +9,20 @@ const moveSchema = new mongoose.Schema({
   timeStamp: { type: Date, required: true },
 });
 
-const gameSessionSchema = new mongoose.Schema({
-  sessionId: { type: String, required: true },
-  puzzleId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Puzzle',
-    required: true,
+const gameSessionSchema = new mongoose.Schema(
+  {
+    sessionId: { type: String, required: true, index: true },
+    board: { type: [[Number]], required: true },
+    difficulty: {
+      type: String,
+      required: true,
+      enum: ['easy', 'normal', 'hard'],
+    },
+    history: { type: [moveSchema], default: [] },
+    initialBoard: { type: [[Number]], required: true },
   },
-  currentGrid: { type: Array, required: true, default: [] },
-  moves: { type: [moveSchema], default: [] },
-  status: {
-    type: String,
-    required: true,
-    enum: ['in_progress', 'completed', 'abandoned'],
-    default: 'in_progress',
-  },
-});
+  { timestamps: true }
+);
 
 function getGameSessionModel(): Model<any> {
   if (mongoose.models.GameSession) {

@@ -77,7 +77,7 @@ const SudokuBoard = () => {
           JSON.stringify(newGameState)
         );
       } finally {
-        setTimeout(() => setIsLoading(false), 1200);
+        setIsLoading(false);
       }
     },
     []
@@ -131,7 +131,7 @@ const SudokuBoard = () => {
         );
       }
     } finally {
-      setTimeout(() => setIsLoading(false), 1200);
+      setIsLoading(false);
     }
   }, []);
 

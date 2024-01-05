@@ -23,6 +23,8 @@ const SudokuBoard = () => {
   const [initialEmptyCells, setInitialEmptyCells] = useState<boolean[][]>([]);
   const [highlightedCells, setHighlightedCells] = useState<number[]>([]);
 
+  const [isLoading, setIsLoading] = useState(false);
+
   function createNewBoard(difficulty: GameDifficulty) {
     const board = Array.from({ length: 9 }, () => Array(9).fill(0));
     createSudoku(board, difficulty);
@@ -49,6 +51,8 @@ const SudokuBoard = () => {
         initialBoard,
       };
 
+      setIsLoading(true);
+
       try {
         const response = await fetch('/api/saveGame', {
           method: 'POST',
@@ -72,6 +76,8 @@ const SudokuBoard = () => {
           `sudokuGameState_${sessionId}`,
           JSON.stringify(newGameState)
         );
+      } finally {
+        setTimeout(() => setIsLoading(false), 1200);
       }
     },
     []
@@ -91,6 +97,8 @@ const SudokuBoard = () => {
   );
 
   const loadGameSession = useCallback(async (sessionId: string) => {
+    setIsLoading(true);
+
     try {
       const response = await fetch(`/api/loadGame?sessionId=${sessionId}`);
 
@@ -122,6 +130,8 @@ const SudokuBoard = () => {
           initialBoard
         );
       }
+    } finally {
+      setTimeout(() => setIsLoading(false), 1200);
     }
   }, []);
 
@@ -197,9 +207,8 @@ const SudokuBoard = () => {
 
   const handleDifficultyChange = async (newDifficulty: GameDifficulty) => {
     if (newDifficulty !== difficulty) {
-      setDifficulty(newDifficulty);
+      setIsLoading(true);
       const newSessionId = generateSessionId();
-
       const newBoard = createNewBoard(newDifficulty);
 
       await saveGameState(newSessionId, newBoard, newDifficulty, [], newBoard);
@@ -208,8 +217,10 @@ const SudokuBoard = () => {
       setInitialEmptyCells(
         newBoard.map((row) => row.map((cell) => cell === null))
       );
-
+      setDifficulty(newDifficulty);
       redirectToNewGame(newSessionId);
+
+      setIsLoading(false);
     }
   };
 
@@ -331,6 +342,8 @@ const SudokuBoard = () => {
   const sudokuArray = sudokuBoard.flat();
 
   if (!sessionId) return null;
+
+  if (isLoading) return <div>Loading...</div>;
 
   return (
     <div className="flex flex-col items-center justify-center gap-4">

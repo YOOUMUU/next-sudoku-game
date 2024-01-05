@@ -1,28 +1,35 @@
 'use client';
 
 import SudokuCell from '@/components/SudokuCell';
-import { useEffect, useState } from 'react';
-import { Board, createSudoku } from '@/utils/sudoku';
-
-type GameDifficulty = 'normal' | 'easy' | 'hard';
+import { useEffect, useState, useCallback } from 'react';
+import { createSudoku } from '@/utils/sudoku';
+import { v4 as uuidv4 } from 'uuid';
+import { useRouter, useParams } from 'next/navigation';
+import SudokuControl from './SudokuControl';
 
 const SudokuBoard = () => {
+  const router = useRouter();
+  const { sessionId } = useParams();
   const [selectedCell, setSelectedCell] = useState(-1);
   const [sudokuBoard, setSudokuBoard] = useState<Board>(
     Array.from({ length: 9 }, () => Array(9).fill(0))
   );
   const [difficulty, setDifficulty] = useState<GameDifficulty>('normal');
-  const [currentValue, setCurrentValue] = useState<number | null>(null);
 
   const [selectedNumber, setSelectedNumber] = useState<number | null>(null);
 
-  const [history, setHistory] = useState<Board[]>([]);
+  const [history, setHistory] = useState<Move[]>([]);
   const [initialEmptyCells, setInitialEmptyCells] = useState<boolean[][]>([]);
   const [highlightedCells, setHighlightedCells] = useState<number[]>([]);
 
+  function createNewBoard(difficulty: GameDifficulty) {
+    const board = Array.from({ length: 9 }, () => Array(9).fill(0));
+    createSudoku(board, difficulty);
+    return board;
+  }
+
   useEffect(() => {
-    const newBoard = Array.from({ length: 9 }, () => Array(9).fill(0));
-    createSudoku(newBoard, difficulty);
+    const newBoard = createNewBoard(difficulty);
     setSudokuBoard(newBoard);
 
     const emptyCells = newBoard.map((row) => row.map((cell) => cell === null));
@@ -43,24 +50,110 @@ const SudokuBoard = () => {
     }
   }, [selectedCell, sudokuBoard]);
 
-  const resetGame = (newDifficulty: string = difficulty) => {
-    const newBoard = Array.from({ length: 9 }, () => Array(9).fill(0));
-    createSudoku(newBoard, newDifficulty);
-
-    setSudokuBoard(newBoard);
-
-    const emptyCells = newBoard.map((row) => row.map((cell) => cell === null));
-    setInitialEmptyCells(emptyCells);
-    setSelectedCell(-1);
-
-    setHighlightedCells([]);
+  const generateSessionId = () => {
+    return uuidv4();
   };
 
-  const sudokuArray = sudokuBoard.flat();
+  const saveGameState = useCallback(
+    (
+      sessionId: string,
+      board: Board,
+      moveHistory: Move[],
+      difficulty: GameDifficulty
+    ) => {
+      const gameState = {
+        board: board,
+        history: moveHistory,
+        difficulty: difficulty,
+      };
+      localStorage.setItem(
+        `sudokuGameState_${sessionId}`,
+        JSON.stringify(gameState)
+      );
+    },
+    []
+  );
+
+  const createNewGameSession = useCallback(
+    (sessionId: string) => {
+      try {
+        const newBoard = createNewBoard(difficulty);
+        setSudokuBoard(newBoard);
+        saveGameState(sessionId, newBoard, [], difficulty);
+      } catch (error) {
+        console.error('Failed to create new game session', error);
+      }
+    },
+    [saveGameState, difficulty]
+  );
+
+  const loadGameSession = useCallback((sessionId: string) => {
+    try {
+      const gameState = localStorage.getItem(`sudokuGameState_${sessionId}`);
+      if (gameState) {
+        const { board, history, difficulty } = JSON.parse(gameState) as {
+          board: Board;
+          history: Move[];
+          difficulty: GameDifficulty;
+        };
+        setDifficulty(difficulty);
+        setSudokuBoard(board);
+        setHistory(history);
+
+        const emptyCells = board.map((row: (number | null)[]) =>
+          row.map((cell: number | null) => cell === null)
+        );
+        setInitialEmptyCells(emptyCells);
+      }
+    } catch (error) {
+      console.error('Failed to load game session', error);
+    }
+  }, []);
+
+  const redirectToNewGame = useCallback(
+    (sessionId: string) => {
+      router.push(`/game/${sessionId}`);
+    },
+    [router]
+  );
+
+  useEffect(() => {
+    const id = Array.isArray(sessionId) ? sessionId[0] : sessionId;
+    if (id) {
+      loadGameSession(id);
+    } else {
+      const newSessionId = generateSessionId();
+      createNewGameSession(newSessionId);
+      redirectToNewGame(newSessionId);
+    }
+  }, [sessionId, loadGameSession, redirectToNewGame, createNewGameSession]);
+
+  const resetGame = () => {
+    const newBoard = createNewBoard(difficulty);
+    const newSessionId = generateSessionId();
+    saveGameState(newSessionId, newBoard, [], difficulty);
+    setSudokuBoard(newBoard);
+    setInitialEmptyCells(
+      newBoard.map((row) => row.map((cell) => cell === null))
+    );
+    redirectToNewGame(newSessionId);
+  };
 
   const handleDifficultyChange = (newDifficulty: GameDifficulty) => {
-    setDifficulty(newDifficulty);
-    if (newDifficulty !== difficulty) resetGame(newDifficulty);
+    if (newDifficulty !== difficulty) {
+      setDifficulty(newDifficulty);
+      const newSessionId = generateSessionId();
+
+      const newBoard = createNewBoard(newDifficulty);
+      saveGameState(newSessionId, newBoard, [], newDifficulty);
+
+      setSudokuBoard(newBoard);
+      setInitialEmptyCells(
+        newBoard.map((row) => row.map((cell) => cell === null))
+      );
+
+      redirectToNewGame(newSessionId);
+    }
   };
 
   const handleCellChange = (index: number) => {
@@ -91,39 +184,26 @@ const SudokuBoard = () => {
       const row = Math.floor(selectedCell / 9);
       const col = selectedCell % 9;
 
-      if (sudokuBoard[row][col] === null) {
-        const newBoard = sudokuBoard.map((row) => [...row]);
+      if (initialEmptyCells[row][col]) {
+        // 确保该单元格可填入
+        const newBoard = [...sudokuBoard];
         newBoard[row][col] = num;
 
-        setHistory((prev) => [...prev, sudokuBoard]);
+        const newHistory = [
+          ...history,
+          {
+            position: { row, col },
+            value: num,
+            timeStamp: new Date(),
+          },
+        ];
+        const id = Array.isArray(sessionId) ? sessionId[0] : sessionId;
+
         setSudokuBoard(newBoard);
+        setHistory(newHistory);
+        saveGameState(id, newBoard, newHistory, difficulty);
       }
     }
-  };
-
-  const checkForErrors = (index: number): boolean => {
-    const row = Math.floor(index / 9);
-    const col = index % 9;
-    const num = sudokuBoard[row][col];
-
-    if (num === null) {
-      return false;
-    }
-
-    for (let i = 0; i < 9; i++) {
-      if (i !== col && sudokuBoard[row][i] === num) return true;
-      if (i !== row && sudokuBoard[i][col] === num) return true;
-    }
-
-    const startRow = Math.floor(row / 3) * 3;
-    const startCol = Math.floor(col / 3) * 3;
-    for (let i = startRow; i < startRow + 3; i++) {
-      for (let j = startCol; j < startCol + 3; j++) {
-        if (i !== row && j !== col && sudokuBoard[i][j] === num) return true;
-      }
-    }
-
-    return false;
   };
 
   const validateSolution = () => {
@@ -166,68 +246,38 @@ const SudokuBoard = () => {
   };
 
   const undo = () => {
-    setHistory((prev) => {
-      if (prev.length === 0) return prev;
+    setHistory((prevHistory) => {
+      if (prevHistory.length === 0) return prevHistory;
 
-      const lastBoard = prev[prev.length - 1];
-      setSudokuBoard(lastBoard.map((row) => [...row]));
-      return prev.slice(0, prev.length - 1);
+      const newHistory = [...prevHistory];
+      const lastMove = newHistory.pop();
+      const newBoard = sudokuBoard.map((row) => [...row]);
+
+      if (lastMove) {
+        const { row, col } = lastMove.position;
+        newBoard[row][col] = null;
+        setSudokuBoard(newBoard);
+        const id = Array.isArray(sessionId) ? sessionId[0] : sessionId;
+
+        saveGameState(id, newBoard, newHistory, difficulty);
+      }
+
+      return newHistory;
     });
   };
 
+  const sudokuArray = sudokuBoard.flat();
+
+  if (!sessionId) return null;
+
   return (
     <div className="flex flex-col items-center justify-center gap-4">
-      <div className="flex gap-3 justify-center">
-        <button
-          className="mt-4 p-2 bg-gray-200 hover:bg-gray-900 hover:text-white rounded"
-          onClick={() => {
-            const isCorrect = validateSolution();
-            if (isCorrect) {
-              alert('恭喜，您成功解开了数独！');
-            } else {
-              alert('解答错误，请再试一次。');
-            }
-          }}
-        >
-          提交
-        </button>
-        <button
-          className="mt-4 p-2 bg-gray-200 hover:bg-gray-900 hover:text-white rounded"
-          onClick={() => resetGame()}
-        >
-          新游戏
-        </button>
-        <button
-          className={
-            difficulty === 'easy'
-              ? 'mt-4 p-2 rounded bg-gray-900 text-white cursor-default'
-              : 'mt-4 p-2 bg-gray-200 rounded hover:bg-gray-900 hover:text-white'
-          }
-          onClick={() => handleDifficultyChange('easy')}
-        >
-          简单
-        </button>
-        <button
-          className={
-            difficulty === 'normal'
-              ? 'mt-4 p-2 rounded bg-gray-900 text-white cursor-default'
-              : 'mt-4 p-2 bg-gray-200 rounded hover:bg-gray-900 hover:text-white'
-          }
-          onClick={() => handleDifficultyChange('normal')}
-        >
-          普通
-        </button>
-        <button
-          className={
-            difficulty === 'hard'
-              ? 'mt-4 p-2 rounded bg-gray-900 text-white cursor-default'
-              : 'mt-4 p-2 bg-gray-200 rounded hover:bg-gray-900 hover:text-white'
-          }
-          onClick={() => handleDifficultyChange('hard')}
-        >
-          困难
-        </button>
-      </div>
+      <SudokuControl
+        difficulty={difficulty}
+        validateSolution={validateSolution}
+        resetGame={resetGame}
+        handleDifficultyChange={handleDifficultyChange}
+      />
       <div className="grid grid-cols-9 gap-0 bg-gray-50 border border-gray-600">
         {sudokuArray.map((value, index) => {
           const row = Math.floor(index / 9);
@@ -239,7 +289,6 @@ const SudokuBoard = () => {
             row % 3 === 2 ? 'border-b-gray-600' : ''
           } ${col % 3 === 2 ? 'border-r-gray-600' : ''}`;
 
-          const highlightError = checkForErrors(index);
           const initialEmpty =
             initialEmptyCells[row] && initialEmptyCells[row][col];
           const isHighlighted = highlightedCells.includes(index);
@@ -252,10 +301,9 @@ const SudokuBoard = () => {
               isSelected={index === selectedCell}
               onChange={handleCellChange}
               borderStyle={borderStyle}
-              currentValue={currentValue}
+              currentValue={selectedNumber}
               selectedRow={Math.floor(selectedCell / 9)}
               selectedCol={selectedCell % 9}
-              highlightError={highlightError}
               highlight={isHighlighted}
               initialEmpty={initialEmpty}
             />
@@ -268,7 +316,7 @@ const SudokuBoard = () => {
             <button
               key={num}
               className={`w-12 h-12 m-1 ${
-                currentValue === num ? 'bg-yellow-400' : 'bg-gray-200'
+                selectedNumber === num ? 'bg-yellow-400' : 'bg-gray-200'
               }`}
               onClick={() => handleNumberSelect(num)}
             >

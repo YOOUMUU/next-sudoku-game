@@ -1,5 +1,3 @@
-export type Board = (number | null)[][];
-
 function isValid(board: Board, row: number, col: number, num: number): boolean {
   for (let i = 0; i < 9; i++) {
     const m = 3 * Math.floor(row / 3) + Math.floor(i / 3);
@@ -18,7 +16,7 @@ export function createSudoku(
   col = 0
 ): boolean {
   if (row === 9) {
-    clearCellsForDifficulty(board, difficulty); // 新增：根据难度清空单元格
+    clearCellsForDifficulty(board, difficulty);
     return true;
   }
   if (col === 9) return createSudoku(board, difficulty, row + 1, 0);

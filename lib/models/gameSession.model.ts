@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+import mongoose, { Model } from 'mongoose';
 
 const moveSchema = new mongoose.Schema({
   position: {
@@ -26,8 +26,12 @@ const gameSessionSchema = new mongoose.Schema({
   },
 });
 
-const GameSession =
-  mongoose.models.GameSession ||
-  mongoose.model('GameSession', gameSessionSchema);
+function getGameSessionModel(): Model<any> {
+  if (mongoose.models.GameSession) {
+    return mongoose.models.GameSession;
+  } else {
+    return mongoose.model('GameSession', gameSessionSchema);
+  }
+}
 
-export default GameSession;
+export { getGameSessionModel };

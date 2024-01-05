@@ -7,7 +7,6 @@ type SudokuProps = {
   selectedRow: number;
   selectedCol: number;
   currentValue: number | null;
-  highlightError: boolean;
   highlight: boolean;
   initialEmpty: boolean;
 };
@@ -21,7 +20,6 @@ const SudokuCell = ({
   selectedRow,
   selectedCol,
   currentValue,
-  highlightError,
   highlight,
   initialEmpty,
 }: SudokuProps) => {
@@ -58,7 +56,7 @@ const SudokuCell = ({
 
   return (
     <div
-      className={`flex justify-center items-center w-8 h-8 ${borderStyle} ${backgroundColor}`}
+      className={`cursor-pointer flex justify-center items-center w-8 h-8 ${borderStyle} ${backgroundColor}`}
       onClick={handleClick}
     >
       {value}

@@ -6,3 +6,5 @@ type Move = {
   value: number;
   timeStamp: Date;
 };
+type Board = (number | null)[][];
+type GameDifficulty = 'normal' | 'easy' | 'hard';

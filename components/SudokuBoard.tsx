@@ -191,32 +191,50 @@ const SudokuBoard = () => {
   const resetGame = async () => {
     const newBoard = createNewBoard(difficulty);
     const newSessionId = generateSessionId();
+    setIsLoading(true);
 
-    await saveGameState(newSessionId, newBoard, difficulty, [], newBoard);
-
-    setSudokuBoard(newBoard);
-    setInitialEmptyCells(
-      newBoard.map((row) => row.map((cell) => cell === null))
-    );
-    redirectToNewGame(newSessionId);
-  };
-
-  const handleDifficultyChange = async (newDifficulty: GameDifficulty) => {
-    if (newDifficulty !== difficulty) {
-      setIsLoading(true);
-      const newSessionId = generateSessionId();
-      const newBoard = createNewBoard(newDifficulty);
-
-      await saveGameState(newSessionId, newBoard, newDifficulty, [], newBoard);
+    try {
+      await saveGameState(newSessionId, newBoard, difficulty, [], newBoard);
 
       setSudokuBoard(newBoard);
       setInitialEmptyCells(
         newBoard.map((row) => row.map((cell) => cell === null))
       );
-      setDifficulty(newDifficulty);
       redirectToNewGame(newSessionId);
+    } catch (error) {
+      console.error('Error resetting game:', error);
+    } finally {
+      setTimeout(() => setIsLoading(false), 1200);
+    }
+  };
 
-      setIsLoading(false);
+  const handleDifficultyChange = async (newDifficulty: GameDifficulty) => {
+    if (newDifficulty !== difficulty) {
+      setIsLoading(true);
+
+      try {
+        const newSessionId = generateSessionId();
+        const newBoard = createNewBoard(newDifficulty);
+
+        await saveGameState(
+          newSessionId,
+          newBoard,
+          newDifficulty,
+          [],
+          newBoard
+        );
+
+        setSudokuBoard(newBoard);
+        setInitialEmptyCells(
+          newBoard.map((row) => row.map((cell) => cell === null))
+        );
+        setDifficulty(newDifficulty);
+        redirectToNewGame(newSessionId);
+      } catch (error) {
+        console.error('Error changing difficulty:', error);
+      } finally {
+        setTimeout(() => setIsLoading(false), 1200);
+      }
     }
   };
 

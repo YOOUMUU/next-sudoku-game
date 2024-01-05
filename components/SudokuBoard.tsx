@@ -11,9 +11,10 @@ const SudokuBoard = () => {
   const router = useRouter();
   const { sessionId } = useParams();
   const [selectedCell, setSelectedCell] = useState(-1);
-  const [sudokuBoard, setSudokuBoard] = useState<Board>(
-    Array.from({ length: 9 }, () => Array(9).fill(0))
-  );
+
+  const initialBoard = Array.from({ length: 9 }, () => Array(9).fill(0));
+  const [sudokuBoard, setSudokuBoard] = useState<Board>(initialBoard);
+
   const [difficulty, setDifficulty] = useState<GameDifficulty>('normal');
 
   const [selectedNumber, setSelectedNumber] = useState<number | null>(null);
@@ -27,6 +28,86 @@ const SudokuBoard = () => {
     createSudoku(board, difficulty);
     return board;
   }
+
+  const generateSessionId = () => {
+    return uuidv4();
+  };
+
+  const saveGameState = useCallback(
+    (
+      sessionId: string,
+      board: Board,
+      difficulty: GameDifficulty,
+      history?: Move[],
+      initialBoard?: Board
+    ) => {
+      const gameState = localStorage.getItem(`sudokuGameState_${sessionId}`);
+      const prevGameState = gameState ? JSON.parse(gameState) : {};
+
+      const newGameState = {
+        ...prevGameState,
+        board: board,
+        difficulty: difficulty,
+        history: history,
+        initialBoard: initialBoard ? initialBoard : prevGameState.initialBoard,
+      };
+
+      localStorage.setItem(
+        `sudokuGameState_${sessionId}`,
+        JSON.stringify(newGameState)
+      );
+    },
+    []
+  );
+
+  const createNewGameSession = useCallback(
+    (sessionId: string) => {
+      try {
+        const newBoard = createNewBoard(difficulty);
+        setSudokuBoard(newBoard);
+        saveGameState(sessionId, newBoard, difficulty, [], newBoard);
+      } catch (error) {
+        console.error('Failed to create new game session', error);
+      }
+    },
+    [difficulty, saveGameState]
+  );
+
+  const loadGameSession = useCallback(
+    (sessionId: string) => {
+      try {
+        const gameState = localStorage.getItem(`sudokuGameState_${sessionId}`);
+        if (gameState) {
+          const { board, difficulty, history, initialBoard } = JSON.parse(
+            gameState
+          ) as {
+            board: Board;
+            difficulty: GameDifficulty;
+            history: Move[];
+            initialBoard: Board;
+          };
+          setDifficulty(difficulty);
+          setSudokuBoard(board);
+          setHistory(history);
+
+          const emptyCells = initialBoard.map((row: (number | null)[]) =>
+            row.map((cell: number | null) => cell === null)
+          );
+          setInitialEmptyCells(emptyCells);
+        }
+      } catch (error) {
+        console.error('Failed to load game session', error);
+      }
+    },
+    [setSudokuBoard, setDifficulty, setHistory, setInitialEmptyCells]
+  );
+
+  const redirectToNewGame = useCallback(
+    (sessionId: string) => {
+      router.push(`/game/${sessionId}`);
+    },
+    [router]
+  );
 
   useEffect(() => {
     const newBoard = createNewBoard(difficulty);
@@ -49,89 +130,20 @@ const SudokuBoard = () => {
       }
     }
   }, [selectedCell, sudokuBoard]);
-
-  const generateSessionId = () => {
-    return uuidv4();
-  };
-
-  const saveGameState = useCallback(
-    (
-      sessionId: string,
-      board: Board,
-      moveHistory: Move[],
-      difficulty: GameDifficulty
-    ) => {
-      const gameState = {
-        board: board,
-        history: moveHistory,
-        difficulty: difficulty,
-      };
-      localStorage.setItem(
-        `sudokuGameState_${sessionId}`,
-        JSON.stringify(gameState)
-      );
-    },
-    []
-  );
-
-  const createNewGameSession = useCallback(
-    (sessionId: string) => {
-      try {
-        const newBoard = createNewBoard(difficulty);
-        setSudokuBoard(newBoard);
-        saveGameState(sessionId, newBoard, [], difficulty);
-      } catch (error) {
-        console.error('Failed to create new game session', error);
-      }
-    },
-    [saveGameState, difficulty]
-  );
-
-  const loadGameSession = useCallback((sessionId: string) => {
-    try {
-      const gameState = localStorage.getItem(`sudokuGameState_${sessionId}`);
-      if (gameState) {
-        const { board, history, difficulty } = JSON.parse(gameState) as {
-          board: Board;
-          history: Move[];
-          difficulty: GameDifficulty;
-        };
-        setDifficulty(difficulty);
-        setSudokuBoard(board);
-        setHistory(history);
-
-        const emptyCells = board.map((row: (number | null)[]) =>
-          row.map((cell: number | null) => cell === null)
-        );
-        setInitialEmptyCells(emptyCells);
-      }
-    } catch (error) {
-      console.error('Failed to load game session', error);
-    }
-  }, []);
-
-  const redirectToNewGame = useCallback(
-    (sessionId: string) => {
-      router.push(`/game/${sessionId}`);
-    },
-    [router]
-  );
-
   useEffect(() => {
-    const id = Array.isArray(sessionId) ? sessionId[0] : sessionId;
-    if (id) {
-      loadGameSession(id);
+    if (sessionId) {
+      loadGameSession(sessionId as string);
     } else {
       const newSessionId = generateSessionId();
       createNewGameSession(newSessionId);
       redirectToNewGame(newSessionId);
     }
-  }, [sessionId, loadGameSession, redirectToNewGame, createNewGameSession]);
+  }, [createNewGameSession, loadGameSession, redirectToNewGame, sessionId]);
 
   const resetGame = () => {
     const newBoard = createNewBoard(difficulty);
     const newSessionId = generateSessionId();
-    saveGameState(newSessionId, newBoard, [], difficulty);
+    saveGameState(newSessionId, newBoard, difficulty, [], newBoard);
     setSudokuBoard(newBoard);
     setInitialEmptyCells(
       newBoard.map((row) => row.map((cell) => cell === null))
@@ -145,7 +157,7 @@ const SudokuBoard = () => {
       const newSessionId = generateSessionId();
 
       const newBoard = createNewBoard(newDifficulty);
-      saveGameState(newSessionId, newBoard, [], newDifficulty);
+      saveGameState(newSessionId, newBoard, newDifficulty, [], newBoard);
 
       setSudokuBoard(newBoard);
       setInitialEmptyCells(
@@ -185,7 +197,6 @@ const SudokuBoard = () => {
       const col = selectedCell % 9;
 
       if (initialEmptyCells[row][col]) {
-        // 确保该单元格可填入
         const newBoard = [...sudokuBoard];
         newBoard[row][col] = num;
 
@@ -197,11 +208,12 @@ const SudokuBoard = () => {
             timeStamp: new Date(),
           },
         ];
-        const id = Array.isArray(sessionId) ? sessionId[0] : sessionId;
 
         setSudokuBoard(newBoard);
         setHistory(newHistory);
-        saveGameState(id, newBoard, newHistory, difficulty);
+
+        const id = Array.isArray(sessionId) ? sessionId[0] : sessionId;
+        saveGameState(id, newBoard, difficulty, newHistory);
       }
     }
   };
@@ -259,7 +271,7 @@ const SudokuBoard = () => {
         setSudokuBoard(newBoard);
         const id = Array.isArray(sessionId) ? sessionId[0] : sessionId;
 
-        saveGameState(id, newBoard, newHistory, difficulty);
+        saveGameState(id, newBoard, difficulty, newHistory);
       }
 
       return newHistory;

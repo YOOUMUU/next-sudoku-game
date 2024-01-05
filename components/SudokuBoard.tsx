@@ -51,8 +51,6 @@ const SudokuBoard = () => {
         initialBoard,
       };
 
-      setIsLoading(true);
-
       try {
         const response = await fetch('/api/saveGame', {
           method: 'POST',
@@ -76,8 +74,6 @@ const SudokuBoard = () => {
           `sudokuGameState_${sessionId}`,
           JSON.stringify(newGameState)
         );
-      } finally {
-        setIsLoading(false);
       }
     },
     []
@@ -246,11 +242,13 @@ const SudokuBoard = () => {
       }
 
       const id = Array.isArray(sessionId) ? sessionId[0] : sessionId;
-      await saveGameState(id, sudokuBoard, difficulty, history);
+      saveGameState(id, sudokuBoard, difficulty, history).catch((error) =>
+        console.error('Failed to asynchronously save game state', error)
+      );
     }
   };
 
-  const handleNumberSelect = async (num: number) => {
+  const handleNumberSelect = (num: number) => {
     if (selectedCell !== -1) {
       const row = Math.floor(selectedCell / 9);
       const col = selectedCell % 9;
@@ -272,7 +270,9 @@ const SudokuBoard = () => {
         setHistory(newHistory);
 
         const id = Array.isArray(sessionId) ? sessionId[0] : sessionId;
-        await saveGameState(id, newBoard, difficulty, newHistory);
+        saveGameState(id, newBoard, difficulty, newHistory).catch((error) =>
+          console.error('Failed to asynchronously save game state', error)
+        );
       }
     }
   };

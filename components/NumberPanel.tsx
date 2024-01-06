@@ -18,7 +18,7 @@ const NumberPanel = ({
             selectedNumber === num ? 'bg-yellow-300' : 'bg-gray-100'
           } ${
             gameStatus !== 'processing'
-              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+              ? 'text-gray-400 cursor-not-allowed'
               : ''
           }`}
           onClick={() => handleNumberSelect(num)}

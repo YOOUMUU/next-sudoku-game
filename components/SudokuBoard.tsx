@@ -409,12 +409,28 @@ const SudokuBoard = () => {
   };
 
   const submitSolution = () => {
-    if (validateSolution()) {
-      setGameStatus('win');
-      setHighlightedCells([]);
-      setSelectedNumber(null);
+    const isSolutionValid = validateSolution();
+    const newGameStatus = isSolutionValid ? 'win' : 'failed';
+    setGameStatus(newGameStatus);
+    setHighlightedCells([]);
+    setSelectedNumber(null);
+
+    const id = Array.isArray(sessionId) ? sessionId[0] : sessionId;
+
+    try {
+      saveGameState(
+        id,
+        sudokuBoard,
+        difficulty,
+        history,
+        newGameStatus,
+        currentBoard
+      );
+    } catch (error) {
+      console.error('Failed to update game status in database', error);
+    } finally {
+      return isSolutionValid;
     }
-    return validateSolution();
   };
 
   const isValidSet = (items: (number | null)[]) => {
@@ -572,9 +588,7 @@ const SudokuBoard = () => {
             />
             <SudokuControl
               setGameStatus={setGameStatus}
-              validateSolution={
-                gameStatus !== 'processing' ? () => false : submitSolution
-              }
+              validateSolution={submitSolution}
               resetGame={resetGame}
               gameStatus={gameStatus}
             />

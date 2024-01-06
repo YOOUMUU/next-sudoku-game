@@ -270,6 +270,7 @@ const SudokuBoard = () => {
     if (selectedCell === index) {
       setSelectedCell(-1);
       setHighlightedCells([]);
+      setSelectedNumber(null);
     } else {
       setSelectedCell(index);
       if (newValue) {

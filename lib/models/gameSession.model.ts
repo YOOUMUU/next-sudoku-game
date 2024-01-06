@@ -12,11 +12,11 @@ const moveSchema = new mongoose.Schema({
 const gameSessionSchema = new mongoose.Schema(
   {
     sessionId: { type: String, required: true, index: true },
-    // userId: {
-    //   type: mongoose.Schema.Types.ObjectId,
-    //   ref: 'User',
-    //   required: true,
-    // },
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
     board: { type: [[Number]], required: true },
     difficulty: {
       type: String,

@@ -364,7 +364,7 @@ const SudokuBoard = () => {
 
   if (!sessionId) return null;
 
-  if (isLoading) return <div>Loading...</div>;
+  if (isLoading) return <div>加载中...</div>;
 
   return (
     <div className="flex flex-col md:flex-row items-start gap-2 md:gap-4">

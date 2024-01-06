@@ -1,7 +1,6 @@
 import mongoose, { Model } from 'mongoose';
 
 const moveSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   position: {
     row: { type: Number, required: true },
     col: { type: Number, required: true },
@@ -13,6 +12,11 @@ const moveSchema = new mongoose.Schema({
 const gameSessionSchema = new mongoose.Schema(
   {
     sessionId: { type: String, required: true, index: true },
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
     board: { type: [[Number]], required: true },
     difficulty: {
       type: String,
@@ -20,7 +24,12 @@ const gameSessionSchema = new mongoose.Schema(
       enum: ['easy', 'normal', 'hard'],
     },
     history: { type: [moveSchema], default: [] },
-    initialBoard: { type: [[Number]], required: true },
+    gameStatus: {
+      type: String,
+      enum: ['win', 'failed', 'processing'],
+      required: true,
+    },
+    initialBoard: { type: [[Number]] },
   },
   { timestamps: true }
 );

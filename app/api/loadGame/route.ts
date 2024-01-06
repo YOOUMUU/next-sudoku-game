@@ -1,4 +1,3 @@
-// 假设这是文件 `loadGame.route.ts`
 import { connectToDB } from '@/lib/mongoose';
 import { getGameSessionModel } from '../../../lib/models/gameSession.model';
 

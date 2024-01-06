@@ -1,21 +1,33 @@
 interface SudokuControlProps {
+  setGameStatus: (status: GameStatus) => void;
   validateSolution: () => Boolean;
   resetGame: () => void;
+  gameStatus: GameStatus;
 }
 
-const SudokuControl = ({ validateSolution, resetGame }: SudokuControlProps) => {
+const SudokuControl = ({
+  setGameStatus,
+  validateSolution,
+  resetGame,
+  gameStatus,
+}: SudokuControlProps) => {
   return (
     <div className="grid grid-cols-2 md:flex md:flex-col w-full gap-2 md:gap-4 justify-center">
       <button
-        className="p-2 md:p-4 bg-green-500 text-white md:text-xl hover:bg-gray-900 hover:text-white rounded"
+        className={`p-2 md:p-4 md:text-xl rounded ${
+          gameStatus !== 'processing'
+            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+            : 'bg-green-500 text-white hover:bg-gray-900 hover:text-white'
+        }`}
         onClick={() => {
           const isCorrect = validateSolution();
           if (isCorrect) {
-            alert('恭喜，您成功解开了数独！');
+            setGameStatus('win');
           } else {
-            alert('解答错误，请再试一次。');
+            setGameStatus('failed');
           }
         }}
+        disabled={gameStatus !== 'processing'}
       >
         提交
       </button>

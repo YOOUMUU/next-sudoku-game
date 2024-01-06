@@ -28,6 +28,10 @@ const SudokuBoard = () => {
 
   const [isLoading, setIsLoading] = useState(false);
 
+  const [undoneSteps, setUndoneSteps] = useState<Move[]>([]);
+
+  const [gameStatus, setGameStatus] = useState<GameStatus>('processing');
+
   function createNewBoard(difficulty: GameDifficulty) {
     const board = Array.from({ length: 9 }, () => Array(9).fill(0));
     createSudoku(board, difficulty);
@@ -44,6 +48,7 @@ const SudokuBoard = () => {
       board: Board,
       difficulty: GameDifficulty,
       history: Move[],
+      gameState: GameStatus,
       initialBoard?: Board
     ) => {
       const newGameState = {
@@ -51,6 +56,7 @@ const SudokuBoard = () => {
         board,
         difficulty,
         history,
+        gameState,
         initialBoard,
       };
 
@@ -87,12 +93,19 @@ const SudokuBoard = () => {
       try {
         const newBoard = createNewBoard(difficulty);
         setSudokuBoard(newBoard);
-        await saveGameState(sessionId, newBoard, difficulty, [], newBoard);
+        await saveGameState(
+          sessionId,
+          newBoard,
+          difficulty,
+          [],
+          gameStatus,
+          newBoard
+        );
       } catch (error) {
         console.error('Failed to create new game session', error);
       }
     },
-    [difficulty, saveGameState]
+    [difficulty, saveGameState, gameStatus]
   );
 
   const loadGameSession = useCallback(async (sessionId: string) => {
@@ -105,7 +118,7 @@ const SudokuBoard = () => {
         throw new Error(`Error: ${response.statusText}`);
       }
 
-      const { board, difficulty, history, initialBoard } =
+      const { board, difficulty, history, gameStatus, initialBoard } =
         await response.json();
 
       setGameStateFromResponse(
@@ -113,19 +126,21 @@ const SudokuBoard = () => {
         board,
         difficulty,
         history,
+        gameStatus,
         initialBoard
       );
     } catch (error) {
       console.error('Failed to load game session from API', error);
       const gameState = localStorage.getItem(`sudokuGameState_${sessionId}`);
       if (gameState) {
-        const { board, difficulty, history, initialBoard } =
+        const { board, difficulty, history, gameStatus, initialBoard } =
           JSON.parse(gameState);
         setGameStateFromResponse(
           sessionId,
           board,
           difficulty,
           history,
+          gameStatus,
           initialBoard
         );
       }
@@ -139,6 +154,7 @@ const SudokuBoard = () => {
     board: Board,
     difficulty: GameDifficulty,
     history: Move[],
+    gameStatus: GameStatus,
     initialBoard?: Board
   ) => {
     setDifficulty(difficulty);
@@ -197,7 +213,14 @@ const SudokuBoard = () => {
     setIsLoading(true);
 
     try {
-      await saveGameState(newSessionId, newBoard, difficulty, [], newBoard);
+      await saveGameState(
+        newSessionId,
+        newBoard,
+        difficulty,
+        [],
+        gameStatus,
+        newBoard
+      );
 
       setSudokuBoard(newBoard);
       setInitialEmptyCells(
@@ -224,6 +247,7 @@ const SudokuBoard = () => {
           newBoard,
           newDifficulty,
           [],
+          gameStatus,
           newBoard
         );
 
@@ -241,7 +265,7 @@ const SudokuBoard = () => {
     }
   };
 
-  const handleCellChange = async (index: number) => {
+  const handleCellClick = async (index: number) => {
     const newValue = sudokuBoard[Math.floor(index / 9)][index % 9];
     if (selectedCell === index) {
       setSelectedCell(-1);
@@ -263,8 +287,9 @@ const SudokuBoard = () => {
       }
 
       const id = Array.isArray(sessionId) ? sessionId[0] : sessionId;
-      saveGameState(id, sudokuBoard, difficulty, history).catch((error) =>
-        console.error('Failed to asynchronously save game state', error)
+      saveGameState(id, sudokuBoard, difficulty, history, gameStatus).catch(
+        (error) =>
+          console.error('Failed to asynchronously save game state', error)
       );
     }
   };
@@ -291,8 +316,9 @@ const SudokuBoard = () => {
         setHistory(newHistory);
 
         const id = Array.isArray(sessionId) ? sessionId[0] : sessionId;
-        saveGameState(id, newBoard, difficulty, newHistory).catch((error) =>
-          console.error('Failed to asynchronously save game state', error)
+        saveGameState(id, newBoard, difficulty, newHistory, gameStatus).catch(
+          (error) =>
+            console.error('Failed to asynchronously save game state', error)
         );
       }
     }
@@ -329,6 +355,15 @@ const SudokuBoard = () => {
     return true;
   };
 
+  const submitSolution = () => {
+    if (validateSolution()) {
+      setGameStatus('win');
+      setHighlightedCells([]);
+      setSelectedNumber(null);
+    }
+    return validateSolution();
+  };
+
   const isValidSet = (items: (number | null)[]) => {
     const numbers = items.filter((item) => item !== null);
     if (numbers.length !== 9) {
@@ -351,8 +386,9 @@ const SudokuBoard = () => {
         setSudokuBoard(newBoard);
 
         const id = Array.isArray(sessionId) ? sessionId[0] : sessionId;
-        saveGameState(id, newBoard, difficulty, newHistory).catch((error) =>
-          console.error('Failed to save game state after undo', error)
+        saveGameState(id, newBoard, difficulty, newHistory, gameStatus).catch(
+          (error) =>
+            console.error('Failed to save game state after undo', error)
         );
       }
 
@@ -362,44 +398,106 @@ const SudokuBoard = () => {
 
   const sudokuArray = sudokuBoard.flat();
 
+  const goToNextStep = () => {
+    if (undoneSteps.length > 0) {
+      const newUndoneSteps = [...undoneSteps];
+      const nextMove = newUndoneSteps.pop();
+      setUndoneSteps(newUndoneSteps);
+
+      if (nextMove) {
+        const newBoard = [...sudokuBoard];
+        const { row, col } = nextMove.position;
+        newBoard[row][col] = nextMove.value;
+        setSudokuBoard(newBoard);
+
+        setHistory((prevHistory) => [...prevHistory, nextMove]);
+      }
+    }
+    setSelectedCell(-1);
+    setHighlightedCells([]);
+    setSelectedNumber(null);
+  };
+
+  const goToPreviousStep = () => {
+    if (history.length > 0) {
+      const newHistory = [...history];
+      const lastMove = newHistory.pop();
+      setHistory(newHistory);
+
+      if (lastMove) {
+        setUndoneSteps((prevUndoneSteps) => [...prevUndoneSteps, lastMove]);
+
+        const newBoard = [...sudokuBoard];
+        const { row, col } = lastMove.position;
+        newBoard[row][col] = null;
+        setSudokuBoard(newBoard);
+      }
+    }
+    setSelectedCell(-1);
+    setHighlightedCells([]);
+    setSelectedNumber(null);
+  };
+
+  const handlePreviousStep = async () => {
+    if (gameStatus !== 'processing') {
+      goToPreviousStep();
+    } else {
+      await undo();
+    }
+  };
+
   if (!sessionId) return null;
 
   if (isLoading) return <div>加载中...</div>;
 
   return (
     <div className="flex flex-col md:flex-row items-start gap-2 md:gap-4">
-      <div className="grid grid-cols-9 gap-0 bg-gray-50 border border-gray-600">
-        {sudokuArray.map((value, index) => {
-          const row = Math.floor(index / 9);
-          const col = index % 9;
+      <div className="flex flex-col items-center md:items-start">
+        <div className="grid grid-cols-9 gap-0 bg-gray-50 border border-gray-600">
+          {sudokuArray.map((value, index) => {
+            const row = Math.floor(index / 9);
+            const col = index % 9;
 
-          const borderStyle = `border border-gray-300 ${
-            row % 3 === 0 ? 'border-t-gray-600' : ''
-          } ${col % 3 === 0 ? 'border-l-gray-600' : ''} ${
-            row % 3 === 2 ? 'border-b-gray-600' : ''
-          } ${col % 3 === 2 ? 'border-r-gray-600' : ''}`;
+            const borderStyle = `border border-gray-300 ${
+              row % 3 === 0 ? 'border-t-gray-600' : ''
+            } ${col % 3 === 0 ? 'border-l-gray-600' : ''} ${
+              row % 3 === 2 ? 'border-b-gray-600' : ''
+            } ${col % 3 === 2 ? 'border-r-gray-600' : ''}`;
 
-          const initialEmpty =
-            initialEmptyCells[row] && initialEmptyCells[row][col];
-          const isHighlighted = highlightedCells.includes(index);
+            const initialEmpty =
+              initialEmptyCells[row] && initialEmptyCells[row][col];
+            const isHighlighted = highlightedCells.includes(index);
 
-          return (
-            <SudokuCell
-              key={index}
-              index={index}
-              value={value}
-              isSelected={index === selectedCell}
-              onChange={handleCellChange}
-              borderStyle={borderStyle}
-              currentValue={selectedNumber}
-              selectedRow={Math.floor(selectedCell / 9)}
-              selectedCol={selectedCell % 9}
-              highlight={isHighlighted}
-              initialEmpty={initialEmpty}
-            />
-          );
-        })}
+            return (
+              <SudokuCell
+                key={index}
+                index={index}
+                value={value}
+                isSelected={index === selectedCell}
+                onClick={handleCellClick}
+                borderStyle={borderStyle}
+                currentValue={selectedNumber}
+                selectedRow={Math.floor(selectedCell / 9)}
+                selectedCol={selectedCell % 9}
+                highlight={isHighlighted}
+                initialEmpty={initialEmpty}
+              />
+            );
+          })}
+        </div>
+        {gameStatus === 'win' && (
+          <div className="mt-2 text-md md:text-xl text-gray-600">
+            游戏结束！恭喜你赢得了胜利！🎉
+          </div>
+        )}
+
+        {gameStatus === 'failed' && (
+          <div className="mt-2 text-md md:text-xl text-gray-600">
+            游戏结束！很遗憾，你没有完成挑战。😢
+          </div>
+        )}
       </div>
+
       <div className="flex flex-col gap-2 md:gap-4 justify-center items-start w-full md:w-auto">
         <DifficultyControl
           difficulty={difficulty}
@@ -407,13 +505,24 @@ const SudokuBoard = () => {
         />
         <NumberPanel
           selectedNumber={selectedNumber}
-          handleNumberSelect={handleNumberSelect}
+          handleNumberSelect={
+            gameStatus !== 'processing' ? () => {} : handleNumberSelect
+          }
+          gameStatus={gameStatus}
         />
         <div className="flex md:flex-col gap-4 w-full">
-          <StepsControl undo={undo} />
+          <StepsControl
+            goToPrev={handlePreviousStep}
+            goToNext={goToNextStep}
+            gameStatus={gameStatus}
+          />
           <SudokuControl
-            validateSolution={validateSolution}
+            setGameStatus={setGameStatus}
+            validateSolution={
+              gameStatus !== 'processing' ? () => false : submitSolution
+            }
             resetGame={resetGame}
+            gameStatus={gameStatus}
           />
         </div>
       </div>

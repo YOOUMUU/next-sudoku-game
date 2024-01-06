@@ -1,18 +1,23 @@
 interface StepsControlProps {
-  undo: () => void;
+  goToPrev: () => void;
+  goToNext: () => void;
+  gameStatus: GameStatus;
 }
 
-const StepsControl = ({ undo }: StepsControlProps) => {
+const StepsControl = ({
+  goToPrev,
+  goToNext,
+  gameStatus,
+}: StepsControlProps) => {
   return (
-    <div className="md:grid md:grid-cols-2 gap-3 w-full">
+    <div className="grid grid-cols-2 gap-2 md:gap-4 w-full">
       <button
-        className="w-full p-2 bg-gray-200 flex justify-center items-center rounded"
-        onClick={undo}
+        className="w-full p-2 text-gray-900 bg-gray-200 flex justify-center items-center rounded"
+        onClick={goToPrev}
       >
         <svg
+          className="w-6"
           xmlns="http://www.w3.org/2000/svg"
-          width="24"
-          height="24"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -20,8 +25,29 @@ const StepsControl = ({ undo }: StepsControlProps) => {
           strokeLinecap="round"
           strokeLinejoin="round"
         >
-          <path d="M9 14 4 9l5-5" />
-          <path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11" />
+          <path d="M18 15h-6v4l-7-7 7-7v4h6v6z" />
+        </svg>
+      </button>
+      <button
+        className={`w-full p-2 flex justify-center items-center rounded ${
+          gameStatus === 'processing'
+            ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
+            : 'bg-gray-200 text-gray-900'
+        }`}
+        onClick={goToNext}
+        disabled={gameStatus === 'processing'}
+      >
+        <svg
+          className="w-6"
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M6 9h6V5l7 7-7 7v-4H6V9z" />
         </svg>
       </button>
     </div>

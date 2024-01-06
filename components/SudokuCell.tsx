@@ -2,7 +2,7 @@ type SudokuProps = {
   value: number | null;
   index: number;
   isSelected: Boolean;
-  onChange: (index: number) => void;
+  onClick: (index: number) => void;
   borderStyle: string;
   selectedRow: number;
   selectedCol: number;
@@ -14,7 +14,7 @@ type SudokuProps = {
 const SudokuCell = ({
   value,
   index,
-  onChange,
+  onClick: onChange,
   isSelected,
   borderStyle,
   selectedRow,

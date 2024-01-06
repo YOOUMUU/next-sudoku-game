@@ -56,7 +56,7 @@ const SudokuCell = ({
 
   return (
     <div
-      className={`cursor-pointer flex justify-center items-center w-8 h-8 ${borderStyle} ${backgroundColor}`}
+      className={`cursor-pointer flex justify-center items-center w-8 h-8 md:w-14 md:h-14 md:text-xl ${borderStyle} ${backgroundColor}`}
       onClick={handleClick}
     >
       {value}

@@ -1,6 +1,7 @@
 import mongoose, { Model } from 'mongoose';
 
 const moveSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   position: {
     row: { type: Number, required: true },
     col: { type: Number, required: true },

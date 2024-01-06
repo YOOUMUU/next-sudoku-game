@@ -5,7 +5,10 @@ import { useEffect, useState, useCallback } from 'react';
 import { createSudoku } from '@/utils/sudoku';
 import { v4 as uuidv4 } from 'uuid';
 import { useRouter, useParams } from 'next/navigation';
-import SudokuControl from './SudokuControl';
+import SudokuControl from './GameControl';
+import NumberPanel from './NumberPanel';
+import DifficultyControl from './DifficultyControl';
+import StepsControl from './StepsControl';
 
 const SudokuBoard = () => {
   const router = useRouter();
@@ -364,13 +367,7 @@ const SudokuBoard = () => {
   if (isLoading) return <div>Loading...</div>;
 
   return (
-    <div className="flex flex-col items-center justify-center gap-4">
-      <SudokuControl
-        difficulty={difficulty}
-        validateSolution={validateSolution}
-        resetGame={resetGame}
-        handleDifficultyChange={handleDifficultyChange}
-      />
+    <div className="flex flex-col md:flex-row items-start gap-2 md:gap-4">
       <div className="grid grid-cols-9 gap-0 bg-gray-50 border border-gray-600">
         {sudokuArray.map((value, index) => {
           const row = Math.floor(index / 9);
@@ -403,38 +400,21 @@ const SudokuBoard = () => {
           );
         })}
       </div>
-      <div>
-        <div className="grid grid-cols-5">
-          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
-            <button
-              key={num}
-              className={`w-12 h-12 m-1 ${
-                selectedNumber === num ? 'bg-yellow-400' : 'bg-gray-200'
-              }`}
-              onClick={() => handleNumberSelect(num)}
-            >
-              {num}
-            </button>
-          ))}
-          <button
-            className="w-12 h-12 m-1 bg-gray-200 flex justify-center items-center"
-            onClick={undo}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M9 14 4 9l5-5" />
-              <path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11" />
-            </svg>
-          </button>
+      <div className="flex flex-col gap-2 md:gap-4 justify-center items-start w-full md:w-auto">
+        <DifficultyControl
+          difficulty={difficulty}
+          handleDifficultyChange={handleDifficultyChange}
+        />
+        <NumberPanel
+          selectedNumber={selectedNumber}
+          handleNumberSelect={handleNumberSelect}
+        />
+        <div className="flex md:flex-col gap-4 w-full">
+          <StepsControl undo={undo} />
+          <SudokuControl
+            validateSolution={validateSolution}
+            resetGame={resetGame}
+          />
         </div>
       </div>
     </div>

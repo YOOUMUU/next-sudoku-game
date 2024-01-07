@@ -33,10 +33,6 @@ const SudokuBoard = () => {
 
   const [gameStatus, setGameStatus] = useState<GameStatus>('processing');
 
-  // const initialUserId = localStorage.getItem('sudokuUserId') || uuidv4();
-
-  // const [userId, setUserId] = useState<string>(initialUserId);
-
   const [gameHistory, setGameHistory] = useState([]);
 
   function createNewBoard(difficulty: GameDifficulty) {
@@ -165,7 +161,6 @@ const SudokuBoard = () => {
     gameStatus: GameStatus,
     initialBoard: Board
   ) => {
-    // setUserId(userId);
     setDifficulty(difficulty);
     setSudokuBoard(board);
     setHistory(history);
@@ -185,40 +180,6 @@ const SudokuBoard = () => {
     },
     [router]
   );
-
-  // useEffect(() => {
-  //   const savedUserId = localStorage.getItem('sudokuUserId');
-  //   const userIdValue = savedUserId ?? userId;
-  //   setUserId(userIdValue);
-
-  //   if (!savedUserId) {
-  //     localStorage.setItem('sudokuUserId', userIdValue);
-  //   }
-  // }, [userId]);
-
-  // useEffect(() => {
-  //   const fetchGameHistory = async () => {
-  //     if (userId) {
-  //       try {
-  //         const response = await fetch(`/api/getGameHistory?userId=${userId}`);
-  //         if (!response.ok) {
-  //           throw new Error('Failed to fetch game history');
-  //         }
-  //         const data = await response.json();
-
-  //         if (data && data.length > 0) {
-  //           setGameHistory(data);
-  //         } else {
-  //           setGameHistory([]);
-  //         }
-  //       } catch (error) {
-  //         console.error('Error fetching game history:', error);
-  //       }
-  //     }
-  //   };
-
-  //   fetchGameHistory();
-  // }, [userId]);
 
   useEffect(() => {
     const newBoard = createNewBoard(difficulty);
@@ -331,12 +292,6 @@ const SudokuBoard = () => {
       } else {
         setHighlightedCells([]);
       }
-
-      // const id = Array.isArray(sessionId) ? sessionId[0] : sessionId;
-      // saveGameState(id, sudokuBoard, difficulty, history, gameStatus).catch(
-      //   (error) =>
-      //     console.error('Failed to asynchronously save game state', error)
-      // );
     }
   };
 

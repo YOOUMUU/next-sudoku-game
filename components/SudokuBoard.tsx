@@ -331,12 +331,12 @@ const SudokuBoard = () => {
         }
       } catch (error) {
         console.error('Error fetching game history:', error);
-        setGameHistory([]); // 出现错误时设置游戏历史为空数组
+        setGameHistory([]);
       }
     };
 
     fetchGameHistory();
-  }, [userObjectId, userId]); // 依赖项数组
+  }, [userObjectId, userId]);
 
   const resetGame = async () => {
     setIsLoading(true);

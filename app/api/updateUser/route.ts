@@ -10,7 +10,7 @@ export const POST = async (req: Request, res: Response) => {
 
     const updatedUser = await User.findOneAndUpdate(
       { userId },
-      { $push: { createdGames: sessionObjectId } },
+      { $addToSet: { createdGames: sessionObjectId } },
       { upsert: true, new: true }
     );
 

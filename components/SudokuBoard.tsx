@@ -9,6 +9,7 @@ import SudokuControl from './GameControl';
 import NumberPanel from './NumberPanel';
 import DifficultyControl from './DifficultyControl';
 import StepsControl from './StepsControl';
+import Link from 'next/link';
 
 const SudokuBoard = () => {
   const [userId, setUserId] = useState<string>('');
@@ -36,7 +37,7 @@ const SudokuBoard = () => {
 
   const [gameStatus, setGameStatus] = useState<GameStatus>('processing');
 
-  const [gameHistory, setGameHistory] = useState([]);
+  const [gameHistory, setGameHistory] = useState<GameeSession[] | []>([]);
 
   function createNewBoard(difficulty: GameDifficulty) {
     const board = Array.from({ length: 9 }, () => Array(9).fill(0));
@@ -262,26 +263,6 @@ const SudokuBoard = () => {
     [router]
   );
 
-  const fetchGameHistory = async (
-    userObjectId: string,
-    setGameHistory: (history: string[]) => void
-  ) => {
-    if (!userObjectId) return;
-    try {
-      const response = await fetch(
-        `/api/loadGameHistory?userId=${userObjectId}`
-      );
-      if (!response.ok) {
-        throw new Error('Failed to fetch game history');
-      }
-      const data = await response.json();
-      setGameHistory(data || []);
-    } catch (error) {
-      console.error('Error fetching game history:', error);
-      setGameHistory([]);
-    }
-  };
-
   useEffect(() => {
     initializeUser();
   }, [initializeUser]);
@@ -324,22 +305,38 @@ const SudokuBoard = () => {
       if (!userObjectId || !userId) return;
 
       try {
-        const response = await fetch(`/api/loadGameHistory?userId=${userId}`);
-        if (!response.ok) {
+        const historyResponse = await fetch(
+          `/api/loadGameHistory?userId=${userId}`
+        );
+        if (!historyResponse.ok) {
           throw new Error('Failed to fetch game history');
         }
-        const data = await response.json();
-        setGameHistory(data.createdGames || []);
+        const historyData = await historyResponse.json();
+
+        if (historyData.createdGames && historyData.createdGames.length > 0) {
+          const gamesDetails = await Promise.all(
+            historyData.createdGames.map((sessionObjectId: string) =>
+              fetch(
+                `/api/loadGameById?sessionObjectId=${sessionObjectId}`
+              ).then((res) => {
+                if (!res.ok)
+                  throw new Error('Failed to fetch game session details');
+                return res.json();
+              })
+            )
+          );
+          setGameHistory(gamesDetails);
+        } else {
+          setGameHistory([]);
+        }
       } catch (error) {
         console.error('Error fetching game history:', error);
-        setGameHistory([]);
+        setGameHistory([]); // 出现错误时设置游戏历史为空数组
       }
     };
 
-    if (userObjectId && paramsId) {
-      fetchGameHistory();
-    }
-  }, [userObjectId, paramsId, userId]);
+    fetchGameHistory();
+  }, [userObjectId, userId]); // 依赖项数组
 
   const resetGame = async () => {
     setIsLoading(true);
@@ -584,8 +581,8 @@ const SudokuBoard = () => {
   if (isLoading) return <div>加载中...</div>;
 
   return (
-    <>
-      <div className="flex flex-col md:flex-row items-start gap-2 md:gap-4">
+    <div className="flex flex-col">
+      <div className="flex flex-col md:flex-row items-start gap-2 md:gap-4 mx-auto">
         <div className="flex flex-col items-center md:items-start">
           <div className="grid grid-cols-9 gap-0 bg-gray-50 border border-gray-600">
             {sudokuArray.map((value, index) => {
@@ -660,14 +657,55 @@ const SudokuBoard = () => {
         </div>
       </div>
       {gameHistory.length !== 0 && (
-        <div>
-          <h3>游戏历史</h3>
-          {gameHistory.map((game, index) => (
-            <div key={index}>{game}</div>
-          ))}
+        <div className="w-full mt-16 max-w-3xl items-center justify-center">
+          <h2 className="text-xl mb-4 font-bold text-gray-900 align-middle">
+            游戏历史
+          </h2>
+          <div className="w-full gap-8 grid grid-cols-1 md:grid-cols-3 items-center justify-center">
+            {gameHistory
+              .filter((game) => game.sessionId !== paramsId)
+              .map((game, index) => (
+                <Link
+                  href={`/game/${game.sessionId}`}
+                  key={index}
+                  className="w-full items-start flex flex-col aspect-square opacity-50 hover:opacity-80 duration-200"
+                >
+                  {game.gameStatus === 'processing' ? (
+                    <h3 className="px-2 mb-1 py-1 rounded bg-gray-300 text-sm">
+                      游戏中
+                    </h3>
+                  ) : game.gameStatus === 'win' ? (
+                    <h3 className="px-2 mb-1 py-1 rounded bg-green-300 text-white text-sm">
+                      成功！🎉
+                    </h3>
+                  ) : game.gameStatus === 'failed' ? (
+                    <h3 className="px-2 mb-1 py-1 rounded bg-red-300 text-white text-sm">
+                      失败。😢
+                    </h3>
+                  ) : (
+                    ''
+                  )}
+
+                  <div className="border-2 w-full aspect-square border-gray-300">
+                    {game.board.map((rowNum, index) => (
+                      <div key={index} className="grid grid-cols-9">
+                        {rowNum.map((num, index) => (
+                          <div
+                            key={index}
+                            className="flex justify-center items-center align-middle text-sm border border-gray-300 w-full aspect-square"
+                          >
+                            {num}
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </Link>
+              ))}
+          </div>
         </div>
       )}
-    </>
+    </div>
   );
 };
 

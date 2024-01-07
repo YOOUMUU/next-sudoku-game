@@ -263,47 +263,6 @@ const SudokuBoard = () => {
   }, [selectedCell, sudokuBoard]);
 
   useEffect(() => {
-    const initializeUser = async () => {
-      let currentUserId = localStorage.getItem('userId');
-      let currentUserObjectId = localStorage.getItem('userObjectId');
-
-      if (!currentUserId) {
-        currentUserId = uuidv4();
-        localStorage.setItem('userId', currentUserId);
-
-        try {
-          const response = await fetch('/api/saveUser', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ userId: currentUserId }),
-          });
-
-          const userData = await response.json();
-          currentUserObjectId = userData._id;
-          if (currentUserObjectId) {
-            localStorage.setItem('userObjectId', currentUserObjectId);
-          } else {
-            console.log(
-              'currentUserObjectId is null, not setting in localStorage'
-            );
-          }
-        } catch (error) {
-          console.error('Failed to create user', error);
-          return;
-        }
-      }
-
-      if (currentUserObjectId) {
-        setUserId(currentUserObjectId);
-      }
-    };
-
-    initializeUser();
-  }, []);
-
-  useEffect(() => {
     if (userId) {
       if (sessionId) {
         loadGameSession(sessionId as string);

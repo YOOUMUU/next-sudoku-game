@@ -17,6 +17,7 @@ const SudokuBoard = () => {
 
   const initialBoard = Array.from({ length: 9 }, () => Array(9).fill(0));
   const [sudokuBoard, setSudokuBoard] = useState<Board>(initialBoard);
+  const [currentBoard, setCurrentBoard] = useState<Board>([]);
 
   const [difficulty, setDifficulty] = useState<GameDifficulty>('normal');
 
@@ -31,6 +32,8 @@ const SudokuBoard = () => {
   const [undoneSteps, setUndoneSteps] = useState<Move[]>([]);
 
   const [gameStatus, setGameStatus] = useState<GameStatus>('processing');
+
+  const [gameHistory, setGameHistory] = useState([]);
 
   function createNewBoard(difficulty: GameDifficulty) {
     const board = Array.from({ length: 9 }, () => Array(9).fill(0));
@@ -48,7 +51,7 @@ const SudokuBoard = () => {
       board: Board,
       difficulty: GameDifficulty,
       history: Move[],
-      gameState: GameStatus,
+      gameStatus: GameStatus,
       initialBoard?: Board
     ) => {
       const newGameState = {
@@ -56,7 +59,7 @@ const SudokuBoard = () => {
         board,
         difficulty,
         history,
-        gameState,
+        gameStatus,
         initialBoard,
       };
 
@@ -93,19 +96,20 @@ const SudokuBoard = () => {
       try {
         const newBoard = createNewBoard(difficulty);
         setSudokuBoard(newBoard);
+
         await saveGameState(
           sessionId,
           newBoard,
           difficulty,
           [],
-          gameStatus,
+          'processing',
           newBoard
         );
       } catch (error) {
         console.error('Failed to create new game session', error);
       }
     },
-    [difficulty, saveGameState, gameStatus]
+    [difficulty, saveGameState]
   );
 
   const loadGameSession = useCallback(async (sessionId: string) => {
@@ -118,11 +122,11 @@ const SudokuBoard = () => {
         throw new Error(`Error: ${response.statusText}`);
       }
 
-      const { board, difficulty, history, gameStatus, initialBoard } =
+      const { id, board, difficulty, history, gameStatus, initialBoard } =
         await response.json();
 
       setGameStateFromResponse(
-        sessionId,
+        id,
         board,
         difficulty,
         history,
@@ -133,7 +137,7 @@ const SudokuBoard = () => {
       console.error('Failed to load game session from API', error);
       const gameState = localStorage.getItem(`sudokuGameState_${sessionId}`);
       if (gameState) {
-        const { board, difficulty, history, gameStatus, initialBoard } =
+        const { id, board, difficulty, history, gameStatus, initialBoard } =
           JSON.parse(gameState);
         setGameStateFromResponse(
           sessionId,
@@ -155,11 +159,13 @@ const SudokuBoard = () => {
     difficulty: GameDifficulty,
     history: Move[],
     gameStatus: GameStatus,
-    initialBoard?: Board
+    initialBoard: Board
   ) => {
     setDifficulty(difficulty);
     setSudokuBoard(board);
     setHistory(history);
+    setGameStatus(gameStatus);
+    setCurrentBoard(initialBoard);
 
     const effectiveInitialBoard = initialBoard || board;
     const emptyCells = effectiveInitialBoard.map((row) =>
@@ -218,7 +224,7 @@ const SudokuBoard = () => {
         newBoard,
         difficulty,
         [],
-        gameStatus,
+        'processing',
         newBoard
       );
 
@@ -247,7 +253,7 @@ const SudokuBoard = () => {
           newBoard,
           newDifficulty,
           [],
-          gameStatus,
+          'processing',
           newBoard
         );
 
@@ -286,12 +292,6 @@ const SudokuBoard = () => {
       } else {
         setHighlightedCells([]);
       }
-
-      const id = Array.isArray(sessionId) ? sessionId[0] : sessionId;
-      saveGameState(id, sudokuBoard, difficulty, history, gameStatus).catch(
-        (error) =>
-          console.error('Failed to asynchronously save game state', error)
-      );
     }
   };
 
@@ -317,9 +317,16 @@ const SudokuBoard = () => {
         setHistory(newHistory);
 
         const id = Array.isArray(sessionId) ? sessionId[0] : sessionId;
-        saveGameState(id, newBoard, difficulty, newHistory, gameStatus).catch(
-          (error) =>
-            console.error('Failed to asynchronously save game state', error)
+
+        saveGameState(
+          id,
+          newBoard,
+          difficulty,
+          newHistory,
+          gameStatus,
+          currentBoard
+        ).catch((error) =>
+          console.error('Failed to asynchronously save game state', error)
         );
       }
     }
@@ -357,12 +364,28 @@ const SudokuBoard = () => {
   };
 
   const submitSolution = () => {
-    if (validateSolution()) {
-      setGameStatus('win');
-      setHighlightedCells([]);
-      setSelectedNumber(null);
+    const isSolutionValid = validateSolution();
+    const newGameStatus = isSolutionValid ? 'win' : 'failed';
+    setGameStatus(newGameStatus);
+    setHighlightedCells([]);
+    setSelectedNumber(null);
+
+    const id = Array.isArray(sessionId) ? sessionId[0] : sessionId;
+
+    try {
+      saveGameState(
+        id,
+        sudokuBoard,
+        difficulty,
+        history,
+        newGameStatus,
+        currentBoard
+      );
+    } catch (error) {
+      console.error('Failed to update game status in database', error);
+    } finally {
+      return isSolutionValid;
     }
-    return validateSolution();
   };
 
   const isValidSet = (items: (number | null)[]) => {
@@ -452,82 +475,87 @@ const SudokuBoard = () => {
   if (isLoading) return <div>加载中...</div>;
 
   return (
-    <div className="flex flex-col md:flex-row items-start gap-2 md:gap-4">
-      <div className="flex flex-col items-center md:items-start">
-        <div className="grid grid-cols-9 gap-0 bg-gray-50 border border-gray-600">
-          {sudokuArray.map((value, index) => {
-            const row = Math.floor(index / 9);
-            const col = index % 9;
+    <>
+      <div className="flex flex-col md:flex-row items-start gap-2 md:gap-4">
+        <div className="flex flex-col items-center md:items-start">
+          <div className="grid grid-cols-9 gap-0 bg-gray-50 border border-gray-600">
+            {sudokuArray.map((value, index) => {
+              const row = Math.floor(index / 9);
+              const col = index % 9;
 
-            const borderStyle = `border border-gray-300 ${
-              row % 3 === 0 ? 'border-t-gray-600' : ''
-            } ${col % 3 === 0 ? 'border-l-gray-600' : ''} ${
-              row % 3 === 2 ? 'border-b-gray-600' : ''
-            } ${col % 3 === 2 ? 'border-r-gray-600' : ''}`;
+              const borderStyle = `border border-gray-300 ${
+                row % 3 === 0 ? 'border-t-gray-600' : ''
+              } ${col % 3 === 0 ? 'border-l-gray-600' : ''} ${
+                row % 3 === 2 ? 'border-b-gray-600' : ''
+              } ${col % 3 === 2 ? 'border-r-gray-600' : ''}`;
 
-            const initialEmpty =
-              initialEmptyCells[row] && initialEmptyCells[row][col];
-            const isHighlighted = highlightedCells.includes(index);
+              const initialEmpty =
+                initialEmptyCells[row] && initialEmptyCells[row][col];
+              const isHighlighted = highlightedCells.includes(index);
 
-            return (
-              <SudokuCell
-                key={index}
-                index={index}
-                value={value}
-                isSelected={index === selectedCell}
-                onClick={handleCellClick}
-                borderStyle={borderStyle}
-                currentValue={selectedNumber}
-                selectedRow={Math.floor(selectedCell / 9)}
-                selectedCol={selectedCell % 9}
-                highlight={isHighlighted}
-                initialEmpty={initialEmpty}
-              />
-            );
-          })}
+              return (
+                <SudokuCell
+                  key={index}
+                  index={index}
+                  value={value}
+                  isSelected={index === selectedCell}
+                  onClick={handleCellClick}
+                  borderStyle={borderStyle}
+                  currentValue={selectedNumber}
+                  selectedRow={Math.floor(selectedCell / 9)}
+                  selectedCol={selectedCell % 9}
+                  highlight={isHighlighted}
+                  initialEmpty={initialEmpty}
+                />
+              );
+            })}
+          </div>
+          {gameStatus === 'win' && (
+            <div className="mt-2 text-md md:text-xl text-gray-600">
+              游戏结束！恭喜你赢得了胜利！🎉
+            </div>
+          )}
+
+          {gameStatus === 'failed' && (
+            <div className="mt-2 text-md md:text-xl text-gray-600">
+              游戏结束！很遗憾，你没有完成挑战。😢
+            </div>
+          )}
         </div>
-        {gameStatus === 'win' && (
-          <div className="mt-2 text-md md:text-xl text-gray-600">
-            游戏结束！恭喜你赢得了胜利！🎉
-          </div>
-        )}
 
-        {gameStatus === 'failed' && (
-          <div className="mt-2 text-md md:text-xl text-gray-600">
-            游戏结束！很遗憾，你没有完成挑战。😢
-          </div>
-        )}
-      </div>
-
-      <div className="flex flex-col gap-2 md:gap-4 justify-center items-start w-full md:w-auto">
-        <DifficultyControl
-          difficulty={difficulty}
-          handleDifficultyChange={handleDifficultyChange}
-        />
-        <NumberPanel
-          selectedNumber={selectedNumber}
-          handleNumberSelect={
-            gameStatus !== 'processing' ? () => {} : handleNumberSelect
-          }
-          gameStatus={gameStatus}
-        />
-        <div className="flex md:flex-col gap-4 w-full">
-          <StepsControl
-            goToPrev={handlePreviousStep}
-            goToNext={goToNextStep}
-            gameStatus={gameStatus}
+        <div className="flex flex-col gap-2 md:gap-4 justify-center items-start w-full md:w-auto">
+          <DifficultyControl
+            difficulty={difficulty}
+            handleDifficultyChange={handleDifficultyChange}
           />
-          <SudokuControl
-            setGameStatus={setGameStatus}
-            validateSolution={
-              gameStatus !== 'processing' ? () => false : submitSolution
+          <NumberPanel
+            selectedNumber={selectedNumber}
+            handleNumberSelect={
+              gameStatus !== 'processing' ? () => {} : handleNumberSelect
             }
-            resetGame={resetGame}
             gameStatus={gameStatus}
           />
+          <div className="flex md:flex-col gap-4 w-full">
+            <StepsControl
+              goToPrev={handlePreviousStep}
+              goToNext={goToNextStep}
+              gameStatus={gameStatus}
+            />
+            <SudokuControl
+              setGameStatus={setGameStatus}
+              validateSolution={submitSolution}
+              resetGame={resetGame}
+              gameStatus={gameStatus}
+            />
+          </div>
         </div>
       </div>
-    </div>
+      {gameHistory.length !== 0 && (
+        <div>
+          <h3>游戏历史</h3>
+        </div>
+      )}
+    </>
   );
 };
 

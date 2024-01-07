@@ -23,11 +23,11 @@ const gameSessionSchema = new mongoose.Schema(
       required: true,
       enum: ['easy', 'normal', 'hard'],
     },
-    history: { type: [moveSchema], default: [] },
+    history: { type: [moveSchema], required: true, default: [] },
     gameStatus: {
       type: String,
-      enum: ['win', 'failed', 'processing'],
       required: true,
+      enum: ['win', 'failed', 'processing'],
     },
     initialBoard: { type: [[Number]] },
   },

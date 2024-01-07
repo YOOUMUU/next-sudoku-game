@@ -2,7 +2,7 @@ import mongoose, { Model } from 'mongoose';
 
 const userSchema = new mongoose.Schema(
   {
-    userId: { type: String, required: true, unique: true },
+    userId: { type: String, required: true, index: true },
     createdGames: [
       { type: mongoose.Schema.Types.ObjectId, ref: 'GameSession' },
     ],

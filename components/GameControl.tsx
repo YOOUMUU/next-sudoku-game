@@ -1,6 +1,6 @@
 interface SudokuControlProps {
   setGameStatus: (status: GameStatus) => void;
-  validateSolution: () => Boolean;
+  validateSolution: () => Boolean | Promise<Boolean>;
   resetGame: () => void;
   gameStatus: GameStatus;
 }

@@ -262,17 +262,29 @@ const SudokuBoard = () => {
     [router]
   );
 
+  const fetchGameHistory = async (
+    userObjectId: string,
+    setGameHistory: (history: string[]) => void
+  ) => {
+    if (!userObjectId) return;
+    try {
+      const response = await fetch(
+        `/api/loadGameHistory?userId=${userObjectId}`
+      );
+      if (!response.ok) {
+        throw new Error('Failed to fetch game history');
+      }
+      const data = await response.json();
+      setGameHistory(data || []);
+    } catch (error) {
+      console.error('Error fetching game history:', error);
+      setGameHistory([]);
+    }
+  };
+
   useEffect(() => {
     initializeUser();
   }, [initializeUser]);
-
-  useEffect(() => {
-    const newBoard = createNewBoard(difficulty);
-    setSudokuBoard(newBoard);
-
-    const emptyCells = newBoard.map((row) => row.map((cell) => cell === null));
-    setInitialEmptyCells(emptyCells);
-  }, [difficulty]);
 
   useEffect(() => {
     if (selectedCell !== -1) {
@@ -306,6 +318,28 @@ const SudokuBoard = () => {
     loadGameSession,
     redirectToNewGame,
   ]);
+
+  useEffect(() => {
+    const fetchGameHistory = async () => {
+      if (!userObjectId || !userId) return;
+
+      try {
+        const response = await fetch(`/api/loadGameHistory?userId=${userId}`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch game history');
+        }
+        const data = await response.json();
+        setGameHistory(data.createdGames || []);
+      } catch (error) {
+        console.error('Error fetching game history:', error);
+        setGameHistory([]);
+      }
+    };
+
+    if (userObjectId && paramsId) {
+      fetchGameHistory();
+    }
+  }, [userObjectId, paramsId, userId]);
 
   const resetGame = async () => {
     setIsLoading(true);
@@ -628,6 +662,9 @@ const SudokuBoard = () => {
       {gameHistory.length !== 0 && (
         <div>
           <h3>游戏历史</h3>
+          {gameHistory.map((game, index) => (
+            <div key={index}>{game}</div>
+          ))}
         </div>
       )}
     </>

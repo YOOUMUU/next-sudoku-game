@@ -2,43 +2,30 @@ import { connectToDB } from '@/lib/mongoose';
 import { getUserModel } from '@/lib/models/user.model';
 
 export const GET = async (req: Request) => {
-  const requestUrl = new URL(req.url);
-  const userIdentifier = requestUrl.searchParams.get('userId');
+  const url = new URL(req.url);
+  const userId = url.searchParams.get('userId');
 
-  const UserModel = getUserModel();
-  await connectToDB();
+  if (!userId) {
+    return new Response('需要提供 userId', { status: 400 });
+  }
 
+  const User = getUserModel();
   try {
-    if (!userIdentifier) {
-      const newUser = new UserModel();
-      await newUser.save();
+    await connectToDB();
+    const userWithGames = await User.findOne({ userId }).lean();
 
-      return new Response(JSON.stringify(newUser), {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+    if (!userWithGames) {
+      return new Response('未找到用户或游戏历史', { status: 404 });
     }
-
-    const userGameRecords = (await UserModel.findOne({ userId: userIdentifier })
-      .populate('createdGames')
-      .lean()) as any;
-
-    if (!userGameRecords || !userGameRecords.createdGames) {
-      return new Response('No game sessions found for this user', {
-        status: 404,
-      });
-    }
-
-    return new Response(JSON.stringify(userGameRecords.createdGames), {
+    console.log(userWithGames);
+    return new Response(JSON.stringify(userWithGames), {
       status: 200,
       headers: {
         'Content-Type': 'application/json',
       },
     });
-  } catch (error) {
-    console.error(error);
-    return new Response('Internal server error', { status: 500 });
+  } catch (err) {
+    console.error(err);
+    return new Response('服务器错误', { status: 500 });
   }
 };

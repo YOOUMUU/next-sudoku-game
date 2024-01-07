@@ -67,7 +67,6 @@ const SudokuBoard = () => {
         gameStatus,
         initialBoard,
       };
-
       try {
         const response = await fetch('/api/saveGame', {
           method: 'POST',
@@ -85,7 +84,7 @@ const SudokuBoard = () => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            userId: userObjectId,
+            userId: userId,
             sessionObjectId: sessionData._id,
           }),
         });
@@ -113,15 +112,16 @@ const SudokuBoard = () => {
         );
       }
     },
-    [userObjectId]
+    [userId]
   );
 
   const initializeUser = useCallback(async () => {
     let currentUserId = localStorage.getItem('userId');
-
+    if (currentUserId) setUserId(currentUserId);
     if (!currentUserId) {
       currentUserId = uuidv4();
       localStorage.setItem('userId', currentUserId);
+      setUserId(currentUserId);
 
       try {
         const response = await fetch('/api/createUser', {
@@ -154,9 +154,10 @@ const SudokuBoard = () => {
   }, []);
 
   const createNewGameSession = useCallback(
-    async (sessionId: string) => {
+    async (sessionId: string, difficulty: GameDifficulty) => {
       try {
         const newBoard = createNewBoard(difficulty);
+        setDifficulty(difficulty);
         setSudokuBoard(newBoard);
 
         await saveGameState(
@@ -172,65 +173,69 @@ const SudokuBoard = () => {
         console.error('Failed to create new game session', error);
       }
     },
-    [difficulty, userObjectId, saveGameState]
+    [userObjectId, saveGameState]
   );
 
-  const loadGameSession = useCallback(
-    async (sessionId: string) => {
-      setIsLoading(true);
+  const loadGameSession = useCallback(async (sessionId: string) => {
+    setIsLoading(true);
 
-      try {
-        const response = await fetch(`/api/loadGame?sessionId=${sessionId}`);
+    try {
+      const response = await fetch(`/api/loadGame?sessionId=${sessionId}`);
 
-        if (!response.ok) {
-          throw new Error(`Error: ${response.statusText}`);
-        }
+      if (!response.ok) {
+        throw new Error(`Error: ${response.statusText}`);
+      }
 
+      const {
+        id,
+        userObjectId,
+        board,
+        difficulty,
+        history,
+        gameStatus,
+        initialBoard,
+      } = await response.json();
+
+      setGameStateFromResponse(
+        id,
+        userObjectId,
+        board,
+        difficulty,
+        history,
+        gameStatus,
+        initialBoard
+      );
+    } catch (error) {
+      console.error('Failed to load game session from API', error);
+      const gameState = localStorage.getItem(`sudokuGameState_${sessionId}`);
+      if (gameState) {
         const {
           id,
-          userId,
+          userObjectId,
           board,
           difficulty,
           history,
           gameStatus,
           initialBoard,
-        } = await response.json();
-
+        } = JSON.parse(gameState);
         setGameStateFromResponse(
-          id,
-          userId,
+          sessionId,
+          userObjectId,
           board,
           difficulty,
           history,
           gameStatus,
           initialBoard
         );
-      } catch (error) {
-        console.error('Failed to load game session from API', error);
-        const gameState = localStorage.getItem(`sudokuGameState_${sessionId}`);
-        if (gameState) {
-          const { id, board, difficulty, history, gameStatus, initialBoard } =
-            JSON.parse(gameState);
-          setGameStateFromResponse(
-            sessionId,
-            userObjectId,
-            board,
-            difficulty,
-            history,
-            gameStatus,
-            initialBoard
-          );
-        }
-      } finally {
-        setIsLoading(false);
       }
-    },
-    [userObjectId]
-  );
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   const setGameStateFromResponse = (
     sessionId: string,
-    userId: string,
+    userObjectId: string,
     board: Board,
     difficulty: GameDifficulty,
     history: Move[],
@@ -289,11 +294,12 @@ const SudokuBoard = () => {
         loadGameSession(paramsId as string);
       } else {
         const newSessionId = generateSessionId();
-        createNewGameSession(newSessionId);
+        createNewGameSession(newSessionId, difficulty);
         redirectToNewGame(newSessionId);
       }
     }
   }, [
+    difficulty,
     userObjectId,
     paramsId,
     createNewGameSession,
@@ -302,25 +308,11 @@ const SudokuBoard = () => {
   ]);
 
   const resetGame = async () => {
-    const newBoard = createNewBoard(difficulty);
-    const newSessionId = generateSessionId();
     setIsLoading(true);
 
     try {
-      await saveGameState(
-        newSessionId,
-        userObjectId,
-        newBoard,
-        difficulty,
-        [],
-        'processing',
-        newBoard
-      );
-
-      setSudokuBoard(newBoard);
-      setInitialEmptyCells(
-        newBoard.map((row) => row.map((cell) => cell === null))
-      );
+      const newSessionId = generateSessionId();
+      await createNewGameSession(newSessionId, difficulty);
       redirectToNewGame(newSessionId);
     } catch (error) {
       console.error('Error resetting game:', error);
@@ -335,23 +327,8 @@ const SudokuBoard = () => {
 
       try {
         const newSessionId = generateSessionId();
-        const newBoard = createNewBoard(newDifficulty);
-
-        await saveGameState(
-          newSessionId,
-          userObjectId,
-          newBoard,
-          newDifficulty,
-          [],
-          'processing',
-          newBoard
-        );
-
-        setSudokuBoard(newBoard);
-        setInitialEmptyCells(
-          newBoard.map((row) => row.map((cell) => cell === null))
-        );
         setDifficulty(newDifficulty);
+        await createNewGameSession(newSessionId, newDifficulty);
         redirectToNewGame(newSessionId);
       } catch (error) {
         console.error('Error changing difficulty:', error);

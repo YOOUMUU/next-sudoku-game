@@ -2,7 +2,7 @@ import { connectToDB } from '@/lib/mongoose';
 import { getUserModel } from '@/lib/models/user.model';
 
 export const POST = async (req: Request, res: Response) => {
-  const { userId, createdGames } = await req.json();
+  const { userId, sessionObjectId } = await req.json();
   const User = getUserModel();
 
   try {
@@ -10,17 +10,16 @@ export const POST = async (req: Request, res: Response) => {
 
     const updatedUser = await User.findOneAndUpdate(
       { userId },
-      { createdGames },
-      {
-        upsert: true,
-        new: true,
-      }
+      { $push: { createdGames: sessionObjectId } },
+      { upsert: true, new: true }
     );
 
     return new Response(JSON.stringify(updatedUser), {
       status: 201,
     });
   } catch (err) {
-    return new Response('更新用户失败', { status: 500 });
+    console.error(err);
+
+    return new Response('更新用户createdGames失败', { status: 500 });
   }
 };

@@ -12,14 +12,11 @@ import StepsControl from './StepsControl';
 
 const SudokuBoard = () => {
   const [userId, setUserId] = useState<string>('');
+  const [userObjectId, setUserObjectId] = useState<string>('');
 
   const router = useRouter();
   const { sessionId: paramsId } = useParams();
   const [selectedCell, setSelectedCell] = useState(-1);
-
-  const [sessionObjectId, setSessionObjectId] = useState<string>(
-    paramsId as string
-  );
 
   const initialBoard = Array.from({ length: 9 }, () => Array(9).fill(0));
   const [sudokuBoard, setSudokuBoard] = useState<Board>(initialBoard);
@@ -81,16 +78,33 @@ const SudokuBoard = () => {
         });
 
         const sessionData = await response.json();
-        setSessionObjectId(sessionData._id);
+
+        const updateUserResponse = await fetch('/api/updateUser', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId: userObjectId,
+            sessionObjectId: sessionData._id,
+          }),
+        });
 
         if (!response.ok) {
           throw new Error(`Error: ${response.statusText}`);
+        }
+
+        if (!updateUserResponse.ok) {
+          throw new Error(`Error: ${updateUserResponse.statusText}`);
         }
 
         localStorage.setItem(
           `sudokuGameState_${sessionId}`,
           JSON.stringify(newGameState)
         );
+
+        const updatedUserData = await updateUserResponse.json();
+        localStorage.setItem('userData', JSON.stringify(updatedUserData));
       } catch (error) {
         console.error('Failed to save game session', error);
         localStorage.setItem(
@@ -99,7 +113,7 @@ const SudokuBoard = () => {
         );
       }
     },
-    []
+    [userObjectId]
   );
 
   const initializeUser = useCallback(async () => {
@@ -110,17 +124,12 @@ const SudokuBoard = () => {
       localStorage.setItem('userId', currentUserId);
 
       try {
-        const bodyData = {
-          userId: currentUserId,
-          createdGames: sessionObjectId ? [sessionObjectId] : [],
-        };
-
-        const response = await fetch('/api/saveUser', {
+        const response = await fetch('/api/createUser', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(bodyData),
+          body: JSON.stringify({ userId: currentUserId }),
         });
 
         if (!response.ok) {
@@ -137,13 +146,12 @@ const SudokuBoard = () => {
         return;
       }
     }
-
     const storedUserData = localStorage.getItem('userData');
     if (storedUserData) {
       const userData = JSON.parse(storedUserData);
-      setUserId(userData._id);
+      setUserObjectId(userData._id);
     }
-  }, [sessionObjectId]);
+  }, []);
 
   const createNewGameSession = useCallback(
     async (sessionId: string) => {
@@ -153,7 +161,7 @@ const SudokuBoard = () => {
 
         await saveGameState(
           sessionId,
-          userId,
+          userObjectId,
           newBoard,
           difficulty,
           [],
@@ -164,7 +172,7 @@ const SudokuBoard = () => {
         console.error('Failed to create new game session', error);
       }
     },
-    [difficulty, userId, saveGameState]
+    [difficulty, userObjectId, saveGameState]
   );
 
   const loadGameSession = useCallback(
@@ -205,7 +213,7 @@ const SudokuBoard = () => {
             JSON.parse(gameState);
           setGameStateFromResponse(
             sessionId,
-            userId,
+            userObjectId,
             board,
             difficulty,
             history,
@@ -217,7 +225,7 @@ const SudokuBoard = () => {
         setIsLoading(false);
       }
     },
-    [userId]
+    [userObjectId]
   );
 
   const setGameStateFromResponse = (
@@ -276,7 +284,7 @@ const SudokuBoard = () => {
   }, [selectedCell, sudokuBoard]);
 
   useEffect(() => {
-    if (userId) {
+    if (userObjectId) {
       if (paramsId) {
         loadGameSession(paramsId as string);
       } else {
@@ -286,7 +294,7 @@ const SudokuBoard = () => {
       }
     }
   }, [
-    userId,
+    userObjectId,
     paramsId,
     createNewGameSession,
     loadGameSession,
@@ -301,7 +309,7 @@ const SudokuBoard = () => {
     try {
       await saveGameState(
         newSessionId,
-        userId,
+        userObjectId,
         newBoard,
         difficulty,
         [],
@@ -331,7 +339,7 @@ const SudokuBoard = () => {
 
         await saveGameState(
           newSessionId,
-          userId,
+          userObjectId,
           newBoard,
           newDifficulty,
           [],
@@ -402,7 +410,7 @@ const SudokuBoard = () => {
 
         saveGameState(
           id,
-          userId,
+          userObjectId,
           newBoard,
           difficulty,
           newHistory,
@@ -458,7 +466,7 @@ const SudokuBoard = () => {
     try {
       saveGameState(
         id,
-        userId,
+        userObjectId,
         sudokuBoard,
         difficulty,
         history,
@@ -496,7 +504,7 @@ const SudokuBoard = () => {
         const id = Array.isArray(paramsId) ? paramsId[0] : paramsId;
         saveGameState(
           id,
-          userId,
+          userObjectId,
           newBoard,
           difficulty,
           newHistory,

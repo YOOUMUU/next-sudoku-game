@@ -12,7 +12,7 @@ const moveSchema = new mongoose.Schema({
 const gameSessionSchema = new mongoose.Schema(
   {
     sessionId: { type: String, required: true, index: true },
-    userId: {
+    user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       required: true,

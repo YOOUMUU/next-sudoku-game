@@ -14,8 +14,12 @@ const SudokuBoard = () => {
   const [userId, setUserId] = useState<string>('');
 
   const router = useRouter();
-  const { sessionId } = useParams();
+  const { sessionId: paramsId } = useParams();
   const [selectedCell, setSelectedCell] = useState(-1);
+
+  const [sessionObjectId, setSessionObjectId] = useState<string>(
+    paramsId as string
+  );
 
   const initialBoard = Array.from({ length: 9 }, () => Array(9).fill(0));
   const [sudokuBoard, setSudokuBoard] = useState<Board>(initialBoard);
@@ -76,6 +80,9 @@ const SudokuBoard = () => {
           body: JSON.stringify(newGameState),
         });
 
+        const sessionData = await response.json();
+        setSessionObjectId(sessionData._id);
+
         if (!response.ok) {
           throw new Error(`Error: ${response.statusText}`);
         }
@@ -97,29 +104,33 @@ const SudokuBoard = () => {
 
   const initializeUser = useCallback(async () => {
     let currentUserId = localStorage.getItem('userId');
-    let currentUserObjectId = localStorage.getItem('userObjectId');
 
     if (!currentUserId) {
       currentUserId = uuidv4();
       localStorage.setItem('userId', currentUserId);
 
       try {
+        const bodyData = {
+          userId: currentUserId,
+          createdGames: sessionObjectId ? [sessionObjectId] : [],
+        };
+
         const response = await fetch('/api/saveUser', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ userId: currentUserId }),
+          body: JSON.stringify(bodyData),
         });
 
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+
         const userData = await response.json();
-        currentUserObjectId = userData._id;
-        if (currentUserObjectId) {
-          localStorage.setItem('userObjectId', currentUserObjectId);
-        } else {
-          console.log(
-            'currentUserObjectId is null, not setting in localStorage'
-          );
+
+        if (userData) {
+          localStorage.setItem('userData', JSON.stringify(userData));
         }
       } catch (error) {
         console.error('Failed to create user', error);
@@ -127,10 +138,12 @@ const SudokuBoard = () => {
       }
     }
 
-    if (currentUserObjectId) {
-      setUserId(currentUserObjectId);
+    const storedUserData = localStorage.getItem('userData');
+    if (storedUserData) {
+      const userData = JSON.parse(storedUserData);
+      setUserId(userData._id);
     }
-  }, []);
+  }, [sessionObjectId]);
 
   const createNewGameSession = useCallback(
     async (sessionId: string) => {
@@ -264,8 +277,8 @@ const SudokuBoard = () => {
 
   useEffect(() => {
     if (userId) {
-      if (sessionId) {
-        loadGameSession(sessionId as string);
+      if (paramsId) {
+        loadGameSession(paramsId as string);
       } else {
         const newSessionId = generateSessionId();
         createNewGameSession(newSessionId);
@@ -274,7 +287,7 @@ const SudokuBoard = () => {
     }
   }, [
     userId,
-    sessionId,
+    paramsId,
     createNewGameSession,
     loadGameSession,
     redirectToNewGame,
@@ -385,7 +398,7 @@ const SudokuBoard = () => {
         setSudokuBoard(newBoard);
         setHistory(newHistory);
 
-        const id = Array.isArray(sessionId) ? sessionId[0] : sessionId;
+        const id = Array.isArray(paramsId) ? paramsId[0] : paramsId;
 
         saveGameState(
           id,
@@ -440,7 +453,7 @@ const SudokuBoard = () => {
     setHighlightedCells([]);
     setSelectedNumber(null);
 
-    const id = Array.isArray(sessionId) ? sessionId[0] : sessionId;
+    const id = Array.isArray(paramsId) ? paramsId[0] : paramsId;
 
     try {
       saveGameState(
@@ -480,7 +493,7 @@ const SudokuBoard = () => {
         newBoard[row][col] = null;
         setSudokuBoard(newBoard);
 
-        const id = Array.isArray(sessionId) ? sessionId[0] : sessionId;
+        const id = Array.isArray(paramsId) ? paramsId[0] : paramsId;
         saveGameState(
           id,
           userId,
@@ -547,7 +560,7 @@ const SudokuBoard = () => {
     }
   };
 
-  if (!sessionId) return null;
+  if (!paramsId) return null;
 
   if (isLoading) return <div>加载中...</div>;
 

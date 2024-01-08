@@ -535,7 +535,7 @@ const SudokuBoard = () => {
             }
             gameStatus={gameStatus}
           />
-          <div className="flex md:flex-col gap-4 w-full">
+          <div className="flex flex-col gap-4 w-full">
             <StepsControl
               goToPrev={handlePreviousStep}
               goToNext={goToNextStep}

@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 interface SudokuControlProps {
   setGameStatus: (status: GameStatus) => void;
   validateSolution: () => Boolean | Promise<Boolean>;
@@ -37,6 +39,12 @@ const SudokuControl = ({
       >
         新游戏
       </button>
+      <Link
+        href="/createGame"
+        className="text-gray-600 mx-auto hover:text-green-500 col-span-2 md:col-span-1"
+      >
+        自己创建
+      </Link>
     </div>
   );
 };

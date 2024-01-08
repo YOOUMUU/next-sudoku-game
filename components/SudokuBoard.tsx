@@ -9,10 +9,14 @@ import SudokuControl from './GameControl';
 import NumberPanel from './NumberPanel';
 import DifficultyControl from './DifficultyControl';
 import StepsControl from './StepsControl';
+import Link from 'next/link';
 
 const SudokuBoard = () => {
+  const [userId, setUserId] = useState<string>('');
+  const [userObjectId, setUserObjectId] = useState<string>('');
+
   const router = useRouter();
-  const { sessionId } = useParams();
+  const { sessionId: paramsId } = useParams();
   const [selectedCell, setSelectedCell] = useState(-1);
 
   const initialBoard = Array.from({ length: 9 }, () => Array(9).fill(0));
@@ -33,7 +37,7 @@ const SudokuBoard = () => {
 
   const [gameStatus, setGameStatus] = useState<GameStatus>('processing');
 
-  const [gameHistory, setGameHistory] = useState([]);
+  const [gameHistory, setGameHistory] = useState<GameeSession[] | []>([]);
 
   function createNewBoard(difficulty: GameDifficulty) {
     const board = Array.from({ length: 9 }, () => Array(9).fill(0));
@@ -48,6 +52,7 @@ const SudokuBoard = () => {
   const saveGameState = useCallback(
     async (
       sessionId: string,
+      user: string,
       board: Board,
       difficulty: GameDifficulty,
       history: Move[],
@@ -56,13 +61,13 @@ const SudokuBoard = () => {
     ) => {
       const newGameState = {
         sessionId,
+        user,
         board,
         difficulty,
         history,
         gameStatus,
         initialBoard,
       };
-
       try {
         const response = await fetch('/api/saveGame', {
           method: 'POST',
@@ -72,14 +77,34 @@ const SudokuBoard = () => {
           body: JSON.stringify(newGameState),
         });
 
+        const sessionData = await response.json();
+
+        const updateUserResponse = await fetch('/api/updateUser', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId: userId,
+            sessionObjectId: sessionData._id,
+          }),
+        });
+
         if (!response.ok) {
           throw new Error(`Error: ${response.statusText}`);
+        }
+
+        if (!updateUserResponse.ok) {
+          throw new Error(`Error: ${updateUserResponse.statusText}`);
         }
 
         localStorage.setItem(
           `sudokuGameState_${sessionId}`,
           JSON.stringify(newGameState)
         );
+
+        const updatedUserData = await updateUserResponse.json();
+        localStorage.setItem('userData', JSON.stringify(updatedUserData));
       } catch (error) {
         console.error('Failed to save game session', error);
         localStorage.setItem(
@@ -88,17 +113,57 @@ const SudokuBoard = () => {
         );
       }
     },
-    []
+    [userId]
   );
 
+  const initializeUser = useCallback(async () => {
+    let currentUserId = localStorage.getItem('userId');
+    if (currentUserId) setUserId(currentUserId);
+    if (!currentUserId) {
+      currentUserId = uuidv4();
+      localStorage.setItem('userId', currentUserId);
+      setUserId(currentUserId);
+
+      try {
+        const response = await fetch('/api/createUser', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ userId: currentUserId }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+
+        const userData = await response.json();
+
+        if (userData) {
+          localStorage.setItem('userData', JSON.stringify(userData));
+        }
+      } catch (error) {
+        console.error('Failed to create user', error);
+        return;
+      }
+    }
+    const storedUserData = localStorage.getItem('userData');
+    if (storedUserData) {
+      const userData = JSON.parse(storedUserData);
+      setUserObjectId(userData._id);
+    }
+  }, []);
+
   const createNewGameSession = useCallback(
-    async (sessionId: string) => {
+    async (sessionId: string, difficulty: GameDifficulty) => {
       try {
         const newBoard = createNewBoard(difficulty);
+        setDifficulty(difficulty);
         setSudokuBoard(newBoard);
 
         await saveGameState(
           sessionId,
+          userObjectId,
           newBoard,
           difficulty,
           [],
@@ -109,7 +174,7 @@ const SudokuBoard = () => {
         console.error('Failed to create new game session', error);
       }
     },
-    [difficulty, saveGameState]
+    [userObjectId, saveGameState]
   );
 
   const loadGameSession = useCallback(async (sessionId: string) => {
@@ -122,11 +187,19 @@ const SudokuBoard = () => {
         throw new Error(`Error: ${response.statusText}`);
       }
 
-      const { id, board, difficulty, history, gameStatus, initialBoard } =
-        await response.json();
+      const {
+        id,
+        userObjectId,
+        board,
+        difficulty,
+        history,
+        gameStatus,
+        initialBoard,
+      } = await response.json();
 
       setGameStateFromResponse(
         id,
+        userObjectId,
         board,
         difficulty,
         history,
@@ -137,10 +210,18 @@ const SudokuBoard = () => {
       console.error('Failed to load game session from API', error);
       const gameState = localStorage.getItem(`sudokuGameState_${sessionId}`);
       if (gameState) {
-        const { id, board, difficulty, history, gameStatus, initialBoard } =
-          JSON.parse(gameState);
+        const {
+          id,
+          userObjectId,
+          board,
+          difficulty,
+          history,
+          gameStatus,
+          initialBoard,
+        } = JSON.parse(gameState);
         setGameStateFromResponse(
           sessionId,
+          userObjectId,
           board,
           difficulty,
           history,
@@ -155,6 +236,7 @@ const SudokuBoard = () => {
 
   const setGameStateFromResponse = (
     sessionId: string,
+    userObjectId: string,
     board: Board,
     difficulty: GameDifficulty,
     history: Move[],
@@ -182,12 +264,8 @@ const SudokuBoard = () => {
   );
 
   useEffect(() => {
-    const newBoard = createNewBoard(difficulty);
-    setSudokuBoard(newBoard);
-
-    const emptyCells = newBoard.map((row) => row.map((cell) => cell === null));
-    setInitialEmptyCells(emptyCells);
-  }, [difficulty]);
+    initializeUser();
+  }, [initializeUser]);
 
   useEffect(() => {
     if (selectedCell !== -1) {
@@ -204,34 +282,68 @@ const SudokuBoard = () => {
   }, [selectedCell, sudokuBoard]);
 
   useEffect(() => {
-    if (sessionId) {
-      loadGameSession(sessionId as string);
-    } else {
-      const newSessionId = generateSessionId();
-      createNewGameSession(newSessionId);
-      redirectToNewGame(newSessionId);
+    if (userObjectId) {
+      if (paramsId) {
+        loadGameSession(paramsId as string);
+      } else {
+        const newSessionId = generateSessionId();
+        createNewGameSession(newSessionId, difficulty);
+        redirectToNewGame(newSessionId);
+      }
     }
-  }, [createNewGameSession, loadGameSession, redirectToNewGame, sessionId]);
+  }, [
+    difficulty,
+    userObjectId,
+    paramsId,
+    createNewGameSession,
+    loadGameSession,
+    redirectToNewGame,
+  ]);
+
+  useEffect(() => {
+    const fetchGameHistory = async () => {
+      if (!userObjectId || !userId) return;
+
+      try {
+        const historyResponse = await fetch(
+          `/api/loadGameHistory?userId=${userId}`
+        );
+        if (!historyResponse.ok) {
+          throw new Error('Failed to fetch game history');
+        }
+        const historyData = await historyResponse.json();
+
+        if (historyData.createdGames && historyData.createdGames.length > 0) {
+          const gamesDetails = await Promise.all(
+            historyData.createdGames.map((sessionObjectId: string) =>
+              fetch(
+                `/api/loadGameById?sessionObjectId=${sessionObjectId}`
+              ).then((res) => {
+                if (!res.ok)
+                  throw new Error('Failed to fetch game session details');
+                return res.json();
+              })
+            )
+          );
+          setGameHistory(gamesDetails);
+        } else {
+          setGameHistory([]);
+        }
+      } catch (error) {
+        console.error('Error fetching game history:', error);
+        setGameHistory([]);
+      }
+    };
+
+    fetchGameHistory();
+  }, [userObjectId, userId]);
 
   const resetGame = async () => {
-    const newBoard = createNewBoard(difficulty);
-    const newSessionId = generateSessionId();
     setIsLoading(true);
 
     try {
-      await saveGameState(
-        newSessionId,
-        newBoard,
-        difficulty,
-        [],
-        'processing',
-        newBoard
-      );
-
-      setSudokuBoard(newBoard);
-      setInitialEmptyCells(
-        newBoard.map((row) => row.map((cell) => cell === null))
-      );
+      const newSessionId = generateSessionId();
+      await createNewGameSession(newSessionId, difficulty);
       redirectToNewGame(newSessionId);
     } catch (error) {
       console.error('Error resetting game:', error);
@@ -246,22 +358,8 @@ const SudokuBoard = () => {
 
       try {
         const newSessionId = generateSessionId();
-        const newBoard = createNewBoard(newDifficulty);
-
-        await saveGameState(
-          newSessionId,
-          newBoard,
-          newDifficulty,
-          [],
-          'processing',
-          newBoard
-        );
-
-        setSudokuBoard(newBoard);
-        setInitialEmptyCells(
-          newBoard.map((row) => row.map((cell) => cell === null))
-        );
         setDifficulty(newDifficulty);
+        await createNewGameSession(newSessionId, newDifficulty);
         redirectToNewGame(newSessionId);
       } catch (error) {
         console.error('Error changing difficulty:', error);
@@ -316,10 +414,11 @@ const SudokuBoard = () => {
         setSudokuBoard(newBoard);
         setHistory(newHistory);
 
-        const id = Array.isArray(sessionId) ? sessionId[0] : sessionId;
+        const id = Array.isArray(paramsId) ? paramsId[0] : paramsId;
 
         saveGameState(
           id,
+          userObjectId,
           newBoard,
           difficulty,
           newHistory,
@@ -370,11 +469,12 @@ const SudokuBoard = () => {
     setHighlightedCells([]);
     setSelectedNumber(null);
 
-    const id = Array.isArray(sessionId) ? sessionId[0] : sessionId;
+    const id = Array.isArray(paramsId) ? paramsId[0] : paramsId;
 
     try {
       saveGameState(
         id,
+        userObjectId,
         sudokuBoard,
         difficulty,
         history,
@@ -409,10 +509,16 @@ const SudokuBoard = () => {
         newBoard[row][col] = null;
         setSudokuBoard(newBoard);
 
-        const id = Array.isArray(sessionId) ? sessionId[0] : sessionId;
-        saveGameState(id, newBoard, difficulty, newHistory, gameStatus).catch(
-          (error) =>
-            console.error('Failed to save game state after undo', error)
+        const id = Array.isArray(paramsId) ? paramsId[0] : paramsId;
+        saveGameState(
+          id,
+          userObjectId,
+          newBoard,
+          difficulty,
+          newHistory,
+          gameStatus
+        ).catch((error) =>
+          console.error('Failed to save game state after undo', error)
         );
       }
 
@@ -470,13 +576,13 @@ const SudokuBoard = () => {
     }
   };
 
-  if (!sessionId) return null;
+  if (!paramsId) return null;
 
   if (isLoading) return <div>加载中...</div>;
 
   return (
-    <>
-      <div className="flex flex-col md:flex-row items-start gap-2 md:gap-4">
+    <div className="flex flex-col">
+      <div className="flex flex-col md:flex-row items-start gap-2 md:gap-4 mx-auto">
         <div className="flex flex-col items-center md:items-start">
           <div className="grid grid-cols-9 gap-0 bg-gray-50 border border-gray-600">
             {sudokuArray.map((value, index) => {
@@ -551,11 +657,55 @@ const SudokuBoard = () => {
         </div>
       </div>
       {gameHistory.length !== 0 && (
-        <div>
-          <h3>游戏历史</h3>
+        <div className="w-full mt-16 max-w-3xl items-center justify-center">
+          <h2 className="text-xl mb-4 font-bold text-gray-900 align-middle">
+            游戏历史
+          </h2>
+          <div className="w-full gap-8 grid grid-cols-1 md:grid-cols-3 items-center justify-center">
+            {gameHistory
+              .filter((game) => game.sessionId !== paramsId)
+              .map((game, index) => (
+                <Link
+                  href={`/game/${game.sessionId}`}
+                  key={index}
+                  className="w-full items-start flex flex-col aspect-square opacity-50 hover:opacity-80 duration-200"
+                >
+                  {game.gameStatus === 'processing' ? (
+                    <h3 className="px-2 mb-1 py-1 rounded bg-gray-300 text-sm">
+                      游戏中
+                    </h3>
+                  ) : game.gameStatus === 'win' ? (
+                    <h3 className="px-2 mb-1 py-1 rounded bg-green-300 text-white text-sm">
+                      成功！🎉
+                    </h3>
+                  ) : game.gameStatus === 'failed' ? (
+                    <h3 className="px-2 mb-1 py-1 rounded bg-red-300 text-white text-sm">
+                      失败。😢
+                    </h3>
+                  ) : (
+                    ''
+                  )}
+
+                  <div className="border-2 w-full aspect-square border-gray-300">
+                    {game.board.map((rowNum, index) => (
+                      <div key={index} className="grid grid-cols-9">
+                        {rowNum.map((num, index) => (
+                          <div
+                            key={index}
+                            className="flex justify-center items-center align-middle text-sm border border-gray-300 w-full aspect-square"
+                          >
+                            {num}
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </Link>
+              ))}
+          </div>
         </div>
       )}
-    </>
+    </div>
   );
 };
 
